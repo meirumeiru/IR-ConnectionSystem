@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.33130.400
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IR-ConnectionSystem", "IR-ConnectionSystem\IR-ConnectionSystem.csproj", "{CADE48C8-1CD3-421A-9919-6F4CCB101338}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CADE48C8-1CD3-421A-9919-6F4CCB101338}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CADE48C8-1CD3-421A-9919-6F4CCB101338}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CADE48C8-1CD3-421A-9919-6F4CCB101338}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CADE48C8-1CD3-421A-9919-6F4CCB101338}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4BE84DF8-918E-4DF5-B046-CE4B8DE513D6}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,14 @@
+*.vspscc
+*.vssscc
+*.scc
+*.suo
+*.user
+
+/*.bat
+
+/DockingPort-Next/*.sln
+
+/_release/
+
+/IR-ConnectionSystem/IR-ConnectionSystem/bin/
+/IR-ConnectionSystem/IR-ConnectionSystem/obj/

@@ -109,11 +109,11 @@ namespace IR_ConnectionSystem.Module
 		public KFSMEvent on_capture;
 		public KFSMEvent on_captured;
 
-		public KFSMEvent on_release;
-
 		public KFSMEvent on_latch;
 		public KFSMEvent on_prelatched;
 		public KFSMEvent on_latched;
+
+		public KFSMEvent on_release;
 
 		public KFSMEvent on_dock;
 		public KFSMEvent on_undock;
@@ -188,7 +188,7 @@ namespace IR_ConnectionSystem.Module
 			if(node.HasValue("state"))
 				DockStatus = node.GetValue("state");
 			else
-				DockStatus = "";
+				DockStatus = "Inactive";
 
 			if(node.HasValue("dockUId"))
 				dockedPartUId = uint.Parse(node.GetValue("dockUId"));
@@ -947,13 +947,6 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_captured.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_captured.GoToStateOnEvent = st_captured;
 			fsm.AddEvent(on_captured, st_capturing);
-
-
-			on_release = new KFSMEvent("Release");
-			on_release.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_release.GoToStateOnEvent = st_released;
-			fsm.AddEvent(on_release, st_captured, st_latched);
-
 			
 			on_latch = new KFSMEvent("Latch");
 			on_latch.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
@@ -969,6 +962,11 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_latched.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_latched.GoToStateOnEvent = st_latched;
 			fsm.AddEvent(on_latched, st_prelatched);
+
+			on_release = new KFSMEvent("Released");
+			on_release.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_release.GoToStateOnEvent = st_released;
+			fsm.AddEvent(on_release, st_captured, st_latched);
 
 
 			on_dock = new KFSMEvent("Perform docking");

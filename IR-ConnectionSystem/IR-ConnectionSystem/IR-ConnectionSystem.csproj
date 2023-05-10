@@ -34,8 +34,8 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>C:\KerbalSpaceProgram_1.12.3\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="AttachmentAndDockingTools">
-      <HintPath>..\..\..\AttachmentAndDockingTools\AttachmentAndDockingTools\AttachmentAndDockingTools\bin\Debug\AttachmentAndDockingTools.dll</HintPath>
+    <Reference Include="DockingFunctions">
+      <HintPath>..\..\..\DockingFunctions\DockingFunctions\DockingFunctions\bin\Debug\DockingFunctions.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="Microsoft.CSharp" />

@@ -82,6 +82,7 @@ namespace IR_ConnectionSystem.Module
 
 		public KFSMEvent on_capture_passive;
 		public KFSMEvent on_latch_passive;
+
 		public KFSMEvent on_release_passive;
 
 		public KFSMEvent on_dock;
@@ -325,7 +326,7 @@ namespace IR_ConnectionSystem.Module
 			on_approach_passive.GoToStateOnEvent = st_approaching_passive;
 			fsm.AddEvent(on_approach_passive, st_passive);
 
-			on_distance_passive = new KFSMEvent("Distanced");
+			on_distance_passive = new KFSMEvent("Distancing");
 			on_distance_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_distance_passive.GoToStateOnEvent = st_passive;
 			fsm.AddEvent(on_distance_passive, st_approaching_passive);

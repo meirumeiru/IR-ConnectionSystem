@@ -1,7 +1,7 @@
 {
-  "NAME"     : "Infernal Robotics ConnectionSystem",
+  "NAME"     : "Infernal Robotics Next - ConnectionSystem",
   "DOWNLOAD" : "https://github.com/meirumeiru/IR-ConnectionSystem/releases",
-  "URL"      : "https://github.com/meirumeiru/IR-ConnectionSystem/raw/master/Resources/GameData/IR-ConnectionSystem/ConnectionSystem.version",
+  "URL"      : "https://github.com/meirumeiru/IR-ConnectionSystem/raw/main/Resources/GameData/MagicSmokeIndustries/IRConnectionSystem/ConnectionSystem.version",
   "GITHUB" : {
       "USERNAME"   : "meirumeiru",
       "REPOSITORY" : "IR-ConnectionSystem"

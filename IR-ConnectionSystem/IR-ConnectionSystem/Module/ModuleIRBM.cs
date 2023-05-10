@@ -180,7 +180,7 @@ namespace IR_ConnectionSystem.Module
 			if(node.HasValue("state"))
 				DockStatus = node.GetValue("state");
 			else
-				DockStatus = "";
+				DockStatus = "Inactive";
 
 			if(node.HasValue("dockUId"))
 				dockedPartUId = uint.Parse(node.GetValue("dockUId"));

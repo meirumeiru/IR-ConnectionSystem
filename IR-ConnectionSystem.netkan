@@ -12,7 +12,7 @@ license: GPL-3.0
 release_status: stable
 resources:
   repository: https://github.com/meirumeiru/IR-ConnectionSystem
-  remote-avc: https://github.com/meirumeiru/IR-ConnectionSystem/raw/main/Resources/GameData/MagicSmokeIndustries/IRConnectionSystem/ConnectionSystem.version
+  remote-avc: https://github.com/meirumeiru/IR-ConnectionSystem/raw/main/Resources/GameData/IRConnectionSystem/ConnectionSystem.version
 tags:
   - plugin
   - parts
@@ -21,5 +21,5 @@ tags:
 depends:
   - name: DockingFunctions
 install:
-  - file: GameData/MagicSmokeIndustries
+  - file: GameData/IRConnectionSystem
     install_to: GameData

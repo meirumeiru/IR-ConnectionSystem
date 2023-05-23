@@ -7,7 +7,7 @@ using KSP.IO;
 using UnityEngine;
 
 using IR_ConnectionSystem.Utility;
-using AttachmentAndDockingTools;
+using DockingFunctions;
 
 namespace IR_ConnectionSystem.Module
 {
@@ -219,7 +219,7 @@ namespace IR_ConnectionSystem.Module
 				otherPort = null;
 				dockedPartUId = 0;
 
-				Events["TogglePort"].guiName = "Disable Grapple Fixture";
+				Events["TogglePort"].guiName = "Deactivate Grapple Fixture";
 				Events["TogglePort"].active = true;
 			};
 			st_passive.OnFixedUpdate = delegate
@@ -309,7 +309,7 @@ namespace IR_ConnectionSystem.Module
 			st_disabled = new KFSMState("Inactive");
 			st_disabled.OnEnter = delegate(KFSMState from)
 			{
-				Events["TogglePort"].guiName = "Enable Grapple Fixture";
+				Events["TogglePort"].guiName = "Activate Grapple Fixture";
 				Events["TogglePort"].active = true;
 			};
 			st_disabled.OnFixedUpdate = delegate
@@ -423,7 +423,7 @@ namespace IR_ConnectionSystem.Module
 		{
 			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if(!vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
 				if((fsm != null) && fsm.Started)
@@ -566,7 +566,9 @@ namespace IR_ConnectionSystem.Module
 		public void SetDockInfo(DockInfo _dockInfo)
 		{
 			dockInfo = _dockInfo;
-			vesselInfo = (dockInfo.part == (IDockable)this) ? dockInfo.vesselInfo : dockInfo.targetVesselInfo;
+			vesselInfo =
+				(dockInfo == null) ? null :
+				((dockInfo.part == (IDockable)this) ? dockInfo.vesselInfo : dockInfo.targetVesselInfo);
 		}
 
 		////////////////////////////////////////

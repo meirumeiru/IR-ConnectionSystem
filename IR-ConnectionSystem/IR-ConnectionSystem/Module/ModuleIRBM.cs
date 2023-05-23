@@ -8,7 +8,7 @@ using KSP.IO;
 using UnityEngine;
 
 using IR_ConnectionSystem.Utility;
-using AttachmentAndDockingTools;
+using DockingFunctions;
 
 namespace IR_ConnectionSystem.Module
 {
@@ -151,7 +151,7 @@ namespace IR_ConnectionSystem.Module
 
 		// Packed / OnRails
 
-		private bool followOtherPort = false;			// FEHLER, temp noch drin, später raus
+		private bool followOtherPort = false;
 
 		private Vector3 otherPortRelativePosition;
 		private Quaternion otherPortRelativeRotation;
@@ -170,7 +170,7 @@ namespace IR_ConnectionSystem.Module
 		{
 			DebugInit();
 
-		//	part.dockingPorts.AddUnique(this);
+			part.dockingPorts.AddUnique(this);
 		}
 
 		public override void OnLoad(ConfigNode node)
@@ -231,9 +231,17 @@ namespace IR_ConnectionSystem.Module
 			}
 		}
 
-		public override void OnStart(StartState st)
+		public override void OnStart(StartState state)
 		{
-			base.OnStart(st);
+			base.OnStart(state);
+
+			if(state == StartState.Editor)
+				return;
+
+			GameEvents.onVesselGoOnRails.Add(OnPack);
+			GameEvents.onVesselGoOffRails.Add(OnUnpack);
+
+		//	GameEvents.onFloatingOriginShift.Add(OnFloatingOriginShift);
 
 			nodeTransform = base.part.FindModelTransform(nodeTransformName);
 			if(!nodeTransform)
@@ -253,7 +261,7 @@ namespace IR_ConnectionSystem.Module
 				}
 			}
 
-			StartCoroutine(WaitAndInitialize(st));
+			StartCoroutine(WaitAndInitialize(state));
 
 			StartCoroutine(WaitAndInitializeDockingNodeFix());
 		}
@@ -429,9 +437,6 @@ namespace IR_ConnectionSystem.Module
 			{
 			}
 
-			if(DockStatus == "Docked")
-			{
-			}
 */
 			if((DockStatus == "Inactive")
 			|| ((DockStatus == "Attached") && (otherPort == null))) // fix damaged state (just in case)
@@ -459,21 +464,14 @@ namespace IR_ConnectionSystem.Module
 				}
 			}
 
-			if(DockStatus == "Docked")
-			{
-				if(vessel == otherPort.vessel)
-					docked = true;
-
-				otherPort.DockStatus = "Docked";
-			}
-
 // FEHLER wenn ich nicht disabled bin, dann meinen GF disablen... so oder so... -> und das dort auch noch reinnehmen in die st_^'s
 
 			SetupFSM();
 
 			if((DockStatus == "Approaching")
-			|| (DockStatus == "Capturing")
-			|| (DockStatus == "Capture released"))
+			|| (DockStatus == "Latching")		// not required
+			|| (DockStatus == "Pre Latched")	// not required
+			|| (DockStatus == "Latched"))
 			{
 // FEHLER
 //nope, ich muss alles bauen von dem Teil da... gut, auf den fsm von ihm kann ich zwar warten... das stimmt wohl
@@ -481,18 +479,30 @@ namespace IR_ConnectionSystem.Module
 
 				if(otherPort != null)
 				{
-					while((otherPort.fsm == null) || (!otherPort.fsm.Started))
+					while(!otherPort.part.started || (otherPort.fsm == null) || (!otherPort.fsm.Started))
 						yield return null;
 				}
 			}
 
-			fsm.StartFSM(DockStatus);
-		}
+				// FEHLER, verfeinern, die Zustände
+			if(DockStatus == "Latched")
+			{
+				BuildCaptureJoint(otherPort);
+				BuildCaptureJoint2();
+			}
 
-		public void Start()
-		{
-			GameEvents.onVesselGoOnRails.Add(OnPack);
-			GameEvents.onVesselGoOffRails.Add(OnUnpack);
+			if(DockStatus == "Docked")
+			{
+				if(vessel == otherPort.vessel)
+					docked = true;
+
+				otherPort.DockStatus = "Docked";
+
+				if(Vessel.GetDominantVessel(vessel, otherPort.vessel) == vessel)
+					DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
+			}
+
+			fsm.StartFSM(DockStatus);
 		}
 
 		public void OnDestroy()
@@ -505,11 +515,14 @@ namespace IR_ConnectionSystem.Module
 		{
 			if(vessel == v)
 			{
-				if(DockStatus == "Latched")
+				if((DockStatus == "Latched")
+				|| (DockStatus == "Latched (passive)"))
 				{
-					followOtherPort = true;
-
-					ShipCoordinator.Register(part, otherPort.part, true, out otherPortRelativePosition, out otherPortRelativeRotation);
+					if(Vessel.GetDominantVessel(vessel, otherPort.vessel) == otherPort.vessel)
+					{
+						followOtherPort = true;
+						VesselPositionManager.Register(part, otherPort.part, true, out otherPortRelativePosition, out otherPortRelativeRotation);
+					}
 				}
 			}
 		}
@@ -518,11 +531,12 @@ namespace IR_ConnectionSystem.Module
 		{
 			if(vessel == v)
 			{
-				if(DockStatus == "Latched")
+				if((DockStatus == "Latched")
+				|| (DockStatus == "Latched (passive)"))
 				{
+					if(followOtherPort)
+						VesselPositionManager.Unregister(vessel);
 					followOtherPort = false;
-
-					ShipCoordinator.Unregister(vessel);
 				}
 			}
 		}
@@ -542,6 +556,9 @@ namespace IR_ConnectionSystem.Module
 
 				Events["TogglePort"].guiName = "Deactivate Port";
 				Events["TogglePort"].active = true;
+
+				Events["ToggleMode"].guiName = "Mode: Active";
+				Events["ToggleMode"].active = true;
 			};
 			st_active.OnFixedUpdate = delegate
 			{
@@ -576,9 +593,10 @@ namespace IR_ConnectionSystem.Module
 
 						if(distance.magnitude < detectionDistance)
 						{
-							DockDistance = distance.magnitude.ToString();
-
 							angle = Vector3.Angle(nodeTransform.forward, -_otherPort.nodeTransform.forward);
+
+							DockDistance = distance.magnitude.ToString();
+							DockAngle = "-";
 
 							if((angle <= 15f) && (distance.magnitude <= approachingDistance))
 							{
@@ -594,6 +612,9 @@ namespace IR_ConnectionSystem.Module
 			};
 			st_active.OnLeave = delegate(KFSMState to)
 			{
+				Events["TogglePort"].active = false;
+
+				Events["ToggleMode"].active = false;
 			};
 			fsm.AddState(st_active);
 
@@ -603,18 +624,20 @@ namespace IR_ConnectionSystem.Module
 				otherPort = null;
 				dockedPartUId = 0;
 
-				Events["TogglePort"].guiName = "Disable Port";
+				Events["TogglePort"].guiName = "Deactivate Port";
 				Events["TogglePort"].active = true;
+
+				Events["ToggleMode"].guiName = "Mode: Passive";
+				Events["ToggleMode"].active = true;
 			};
 			st_passive.OnFixedUpdate = delegate
 			{
 			};
 			st_passive.OnLeave = delegate(KFSMState to)
 			{
-				if(to != st_disabled)
-				{
-					Events["TogglePort"].active = false;
-				}
+				Events["TogglePort"].active = false;
+
+				Events["ToggleMode"].active = false;
 			};
 			fsm.AddState(st_passive);
 
@@ -639,6 +662,9 @@ namespace IR_ConnectionSystem.Module
 					Vector3 tvref = nodeTransform.TransformDirection(dockingOrientation);
 					Vector3 tv = otherPort.nodeTransform.TransformDirection(otherPort.dockingOrientation);
 					float ang = Vector3.Angle(tvref, tv);
+
+					DockDistance = distance.magnitude.ToString();
+					DockAngle = ang.ToString();
 
 					bool angleok = false;
 
@@ -673,6 +699,7 @@ namespace IR_ConnectionSystem.Module
 					if(angle <= 15f)
 					{
 						DockDistance = distance.magnitude.ToString();
+						DockAngle = "-";
 						return;
 					}
 				}
@@ -690,7 +717,7 @@ namespace IR_ConnectionSystem.Module
 			};
 			fsm.AddState(st_approaching);
 
-			st_approaching_passive = new KFSMState("Approaching");
+			st_approaching_passive = new KFSMState("Approaching (passive)");
 			st_approaching_passive.OnEnter = delegate(KFSMState from)
 			{
 			};
@@ -705,6 +732,7 @@ namespace IR_ConnectionSystem.Module
 			st_latching = new KFSMState("Latching");
 			st_latching.OnEnter = delegate(KFSMState from)
 			{
+				Events["Latch"].active = false;
 				Events["Release"].active = true;
 
 				BuildCaptureJoint(otherPort);
@@ -803,6 +831,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			st_latched_passive = new KFSMState("Latched (passive)");
 			st_latched_passive.OnEnter = delegate(KFSMState from)
 			{
+				Events["MakeActive"].guiActive = true;
 			};
 			st_latched_passive.OnFixedUpdate = delegate
 			{
@@ -814,6 +843,8 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 					otherPort = null;
 					dockedPartUId = 0;
 				}
+
+				Events["MakeActive"].guiActive = false;
 			};
 			fsm.AddState(st_latched_passive);
 
@@ -837,7 +868,8 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			st_preattached = new KFSMState("Attached");
 			st_preattached.OnEnter = delegate(KFSMState from)
 			{
-				Events["Release"].active = true;
+				Events["Release"].active = false;
+
 				Events["Undock"].active = true;
 			};
 			st_preattached.OnFixedUpdate = delegate
@@ -845,7 +877,6 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			};
 			st_preattached.OnLeave = delegate(KFSMState to)
 			{
-				Events["Release"].active = false;
 				Events["Undock"].active = false;
 			};
 			fsm.AddState(st_preattached);
@@ -855,8 +886,6 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			{
 				Events["TogglePort"].guiName = "Activate Port";
 				Events["TogglePort"].active = true;
-
-				Events["AutoCapture"].active = false;
 			};
 			st_disabled.OnFixedUpdate = delegate
 			{
@@ -911,12 +940,12 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_latched = new KFSMEvent("Latched");
 			on_latched.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_latched.GoToStateOnEvent = st_latched;
-			fsm.AddEvent(on_latched, st_prelatched);
+			fsm.AddEvent(on_latched, st_prelatched, st_latched_passive);
 
 			on_latched_passive = new KFSMEvent("Latched");
 			on_latched_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_latched_passive.GoToStateOnEvent = st_latched_passive;
-			fsm.AddEvent(on_latched_passive, st_approaching_passive, st_docked);
+			fsm.AddEvent(on_latched_passive, st_approaching_passive, st_docked, st_preattached, st_latched);
 
 
 			on_release = new KFSMEvent("Release");
@@ -933,7 +962,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_dock = new KFSMEvent("Perform docking");
 			on_dock.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_dock.GoToStateOnEvent = st_docked;
-			fsm.AddEvent(on_dock, st_latched);
+			fsm.AddEvent(on_dock, st_latched, st_latched_passive);
 
 			on_undock = new KFSMEvent("Undock");
 			on_undock.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
@@ -1037,6 +1066,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			CaptureJoint = joint;
 
 			DockDistance = "-";
+			DockAngle = "-";
 		}
 
 		private void BuildCaptureJoint2()
@@ -1103,7 +1133,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		{
 			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if(!vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
 				if((fsm != null) && fsm.Started)
@@ -1121,7 +1151,8 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		[KSPField(guiName = "BM distance", isPersistant = false, guiActive = true)]
 		public string DockDistance;
 
-// FEHLER, DockAngle noch? und evtl. die Anzeige als... weiss ned... evtl. immer zulassen? aber nur wenn approaching? also im DockingNodeEx?? weil der zählt schon ohne approaching zu sein
+		[KSPField(guiName = "BM angle", isPersistant = false, guiActive = true)]
+		public string DockAngle;
 
 		public void Enable()
 		{
@@ -1161,6 +1192,20 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 				fsm.RunEvent(on_setpassive);
 		}
 
+// FEHLER, nicht so tolle Funktion
+		[KSPEvent(guiActive = false, guiActiveUnfocused = false, guiName = "Make Active")]
+		public void MakeActive()
+		{
+			otherPort.DestroyCaptureJoint();
+
+			BuildCaptureJoint(otherPort);
+			BuildCaptureJoint2();
+
+			CaptureJointWoherIchKomme = CaptureJoint.targetPosition;
+
+			fsm.RunEvent(on_latched);
+		}
+
 	// das ist das pull-back und eine Drehung (gleichzeitig)
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Latch")]
 		public void Latch()
@@ -1171,6 +1216,15 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Release")]
 		public void Release()
 		{
+			DestroyCaptureJoint();
+
+			Events["Release"].active = false;
+			Events["Latch"].active = false;
+			Events["Dock"].active = false;
+
+			if(otherPort != null)
+				otherPort.fsm.RunEvent(otherPort.on_release_passive);
+
 			fsm.RunEvent(on_release);
 		}
 
@@ -1188,20 +1242,6 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 
 		public void DockToVessel(ModuleIRBM port)
 		{
-Vector3 position1, position2;
-Transform tf; FlightCamera.TargetMode tm;
-
-//			StartCoroutine(ahi(
-//				position1 = part.transform.InverseTransformPoint(FlightCamera.fetch.GetPivot().position),
-//				position2 = part.transform.InverseTransformPoint(FlightCamera.fetch.GetCameraTransform().position),
-//				part.transform.InverseTransformPoint(FlightCamera.fetch.GetCameraTransform().position),
-//				tm = FlightCamera.fetch.targetMode, tf = FlightCamera.fetch.Target));
-
-position1 = part.transform.InverseTransformPoint(FlightCamera.fetch.GetPivot().position);
-position2 = part.transform.InverseTransformPoint(FlightCamera.fetch.GetCameraTransform().position);
-tf = FlightCamera.fetch.Target;
-tm = FlightCamera.fetch.targetMode;
-
 			Debug.Log("Docking to vessel " + port.vessel.GetDisplayName(), gameObject);
 
 			otherPort = port;
@@ -1210,114 +1250,23 @@ tm = FlightCamera.fetch.targetMode;
 			otherPort.otherPort = this;
 			otherPort.dockedPartUId = part.flightID;
 
-DockingHelper.DisableCameraSwitch();
+			DockingHelper.SaveCameraPosition(part);
+			DockingHelper.SuspendCameraSwitch(10);
 
-// FEHLER, hier neues komplettpacket für's Docking nutzen
+			if(otherPort.vessel == Vessel.GetDominantVessel(vessel, otherPort.vessel))
+				DockingHelper.DockVessels(this, otherPort);
+			else
+				DockingHelper.DockVessels(otherPort, this);
 
-			DockingHelper.DockVessels(this, otherPort);
-/*
-			vesselInfo = new DockedVesselInfo();
-			vesselInfo.name = vessel.vesselName;
-			vesselInfo.vesselType = vessel.vesselType;
-			vesselInfo.rootPartUId = vessel.rootPart.flightID;
-
-			otherPort.vesselInfo = new DockedVesselInfo();
-			otherPort.vesselInfo.name = otherPort.vessel.vesselName;
-			otherPort.vesselInfo.vesselType = otherPort.vessel.vesselType;
-			otherPort.vesselInfo.rootPartUId = otherPort.vessel.rootPart.flightID;
-
-			uint data = vessel.persistentId;
-			uint data2 = otherPort.vessel.persistentId;
-
-			Vessel oldvessel = vessel;
-
-			GameEvents.onVesselDocking.Fire(data, data2);
-			GameEvents.onActiveJointNeedUpdate.Fire(otherPort.vessel);
-			GameEvents.onActiveJointNeedUpdate.Fire(vessel);
-
-
-			DockingHelper.orgInfo orgInfo = DockingHelper.BuildOrgInfo(vessel);
-
-			Vector3 part_orgPos; Quaternion part_orgRot;
-			DockingHelper.DockToVessel(port.part, port.nodeTransform, port.dockingOrientation, part, nodeTransform, dockingOrientation, snapCount, out part_orgPos, out part_orgRot);
-
-			vessel.IgnoreGForces(10);
-
-			DockingHelper.DisableDockingEase(otherPort.vessel);
-
-			part.Couple(otherPort.part);
-
-			DockingHelper.ReRootOrgInfo(orgInfo, part);
-			DockingHelper.MoveOrgInfo(orgInfo, part_orgPos, part_orgRot);
-
-			DockingHelper.ApplyOrgInfo(orgInfo, otherPort.vessel);
-
-
-			GameEvents.onVesselPersistentIdChanged.Fire(data, data2);
-
-			if(oldvessel == FlightGlobals.ActiveVessel)
-			{
-				FlightGlobals.ForceSetActiveVessel(vessel);
-				FlightInputHandler.SetNeutralControls();
-			}
-			else if(vessel == FlightGlobals.ActiveVessel)
-			{
-				vessel.MakeActive();
-				FlightInputHandler.SetNeutralControls();
-			}
-
-ahiSofort(position1, position2, position2, tm, tf);
-
-			for(int i = 0; i < vessel.parts.Count; i++)
-			{
-				FlightGlobals.PersistentLoadedPartIds.Add(vessel.parts[i].persistentId, vessel.parts[i]);
-				if(vessel.parts[i].protoPartSnapshot == null)
-					continue;
-				FlightGlobals.PersistentUnloadedPartIds.Add(vessel.parts[i].protoPartSnapshot.persistentId, vessel.parts[i].protoPartSnapshot);
-			}
-
-			GameEvents.onVesselWasModified.Fire(vessel);
-			GameEvents.onDockingComplete.Fire(new GameEvents.FromToAction<Part, Part>(part, otherPort.part));
-
-			StartCoroutine(DockingHelper.WaitAndEnableDockingEase(vessel));
-
-*/
-ahiSofort(position1, position2, position2, tm, tf);
-
-			StartCoroutine(DockingHelper.WaitAndEnableCameraSwitch());
+			DockingHelper.RestoreCameraPosition(part);
 		}
 
 		private void DoUndock()
 		{
-Vector3 position1, position2;
-Transform tf; FlightCamera.TargetMode tm;
+			DockingHelper.SaveCameraPosition(part);
+			DockingHelper.SuspendCameraSwitch(10);
 
-			StartCoroutine(ahi(
-				position1 = part.transform.InverseTransformPoint(FlightCamera.fetch.GetPivot().position),
-				position2 = part.transform.InverseTransformPoint(FlightCamera.fetch.GetCameraTransform().position),
-				part.transform.InverseTransformPoint(FlightCamera.fetch.GetCameraTransform().position),
-				tm = FlightCamera.fetch.targetMode, tf = FlightCamera.fetch.Target));
-
-			if(part.parent == otherPort.part)
-			{
-				if(DockStatus == "Attached")
-					part.decouple();
-				else
-					part.Undock(vesselInfo);
-			}
-			else
-			{
-				if(DockStatus == "Attached")
-					otherPort.part.decouple();
-				else
-					otherPort.part.Undock(otherPort.vesselInfo);
-			}
-
-ahiSofort(position1, position2, position2, tm, tf);
-
-//otherPort.DeactivateColliders(vessel);
-//DeactivateColliders(otherPort.vessel);
-
+			DockingHelper.UndockVessels(this, otherPort);
 
 			BuildCaptureJoint(otherPort);
 			BuildCaptureJoint2();
@@ -1333,10 +1282,9 @@ ahiSofort(position1, position2, position2, tm, tf);
 					};
 */
 
-	// FEHLER, test, das Teil hängt sonst in der Luft??? keine Ahnung wieso?
-part.AddForce(nodeTransform.forward * 0.001f);
-otherPort.part.AddForce(otherPort.nodeTransform.forward * 0.001f);
+// FEHLER, RB-Joint noch zurücksetzen
 
+			DockingHelper.RestoreCameraPosition(part);
 
 /*
 			otherPort.fsm.RunEvent(otherPort.on_undock);
@@ -1358,26 +1306,6 @@ ahiSofort(position1, position2, position2, tm, tf);
 */
 		}
 
-		void ahiSofort(Vector3 position, Vector3 position2, Vector3 position3, FlightCamera.TargetMode m, Transform p)
-		{
-			FlightCamera.fetch.SetTarget(p, true, m);
-
-			FlightCamera.fetch.GetPivot().position = part.transform.TransformPoint(position);
-			FlightCamera.fetch.SetCamCoordsFromPosition(part.transform.TransformPoint(position2));
-			FlightCamera.fetch.GetCameraTransform().position = part.transform.TransformPoint(position3);
-		}
-
-static int waitframes = 1; // FEHLER, nur, damit wir sicher keine Kollisionen haben zum Testen
-
-		IEnumerator ahi(Vector3 position, Vector3 position2, Vector3 position3, FlightCamera.TargetMode m, Transform p)
-		{
-// FEHLER, so lange müsste man nie warten
-			for(int i = 0; i < waitframes; i++)
-				yield return new WaitForEndOfFrame();
-
-			ahiSofort(position, position2, position3, m, p);
-		}
-
 		[KSPEvent(guiActive = true, guiActiveUnfocused = true, externalToEVAOnly = true, unfocusedRange = 2f, guiName = "#autoLOC_6001445")]
 		public void Undock()
 		{
@@ -1387,7 +1315,7 @@ static int waitframes = 1; // FEHLER, nur, damit wir sicher keine Kollisionen ha
 			DoUndock();
 
 			fsm.RunEvent(on_undock);
-			otherPort.fsm.RunEvent(otherPort.on_undock);
+		//	otherPort.fsm.RunEvent(otherPort.on_undock);
 
 			if(oldvessel == FlightGlobals.ActiveVessel)
 			{
@@ -1400,17 +1328,12 @@ static int waitframes = 1; // FEHLER, nur, damit wir sicher keine Kollisionen ha
 		{
 			yield return null;
 
-Vector3 position1, position2;
-Transform tf; FlightCamera.TargetMode tm;
-
-position1 = part.transform.InverseTransformPoint(FlightCamera.fetch.GetPivot().position);
-position2 = part.transform.InverseTransformPoint(FlightCamera.fetch.GetCameraTransform().position);
-tm = FlightCamera.fetch.targetMode; tf = FlightCamera.fetch.Target;
+			DockingHelper.SaveCameraPosition(part);
 
 			FlightGlobals.ForceSetActiveVessel(vessel);
 			FlightInputHandler.SetNeutralControls();
 
-ahiSofort(position1, position2, position2, tm, tf);
+			DockingHelper.RestoreCameraPosition(part);
 		}
 
 		[KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "#autoLOC_236028")]
@@ -1502,7 +1425,9 @@ ahiSofort(position1, position2, position2, tm, tf);
 		public void SetDockInfo(DockInfo _dockInfo)
 		{
 			dockInfo = _dockInfo;
-			vesselInfo = (dockInfo.part == (IDockable)this) ? dockInfo.vesselInfo : dockInfo.targetVesselInfo;
+			vesselInfo =
+				(dockInfo == null) ? null :
+				((dockInfo.part == (IDockable)this) ? dockInfo.vesselInfo : dockInfo.targetVesselInfo);
 		}
 
 		////////////////////////////////////////

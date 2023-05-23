@@ -8,15 +8,52 @@ using UnityEngine;
 
 using IR_ConnectionSystem.Effects;
 using IR_ConnectionSystem.Utility;
+using DockingFunctions;
 
 namespace IR_ConnectionSystem.Module
 {
-	// FEHLER, alt, in Zukunft überarbeiten
-
-	public class ModuleIRAttachment : PartModule, IModuleInfo/*, IRescalable -> TweakScale */
+	public class ModuleIRAttachment : PartModule, /*IDockable,*/ IModuleInfo
 	{
 		public enum AttachType { None = 0, Ground = 1, Part = 2, Docked = 3 };
 		[KSPField(isPersistant = true)] public AttachType attachType = AttachType.None;
+
+		// Settings
+
+		[KSPField(isPersistant = false)]
+		public Vector3 rayDir = Vector3.down;
+		[KSPField(isPersistant = false)]
+		public float rayLenght = 1;
+
+		[KSPField(isPersistant = false)]
+		public float forceNeeded = 5;
+
+		[KSPField(isPersistant = false)]
+		public float groundBreakForce = 15;
+		[KSPField(isPersistant = false)]
+		public float partBreakForce = 10;
+
+		[KSPField(isPersistant = false)]
+		public bool groundAttach = false;
+		[KSPField(isPersistant = false)]
+		public bool partAttach = true;
+		[KSPField(isPersistant = false)]
+		public bool dockedAttach = true;			// FEHLER, temp, das hier wäre normal false als default
+
+		[KSPField(isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Electric Charge required", guiUnits = "u/s")]
+		public float electricChargeRequiredIdle = 0.3f;
+
+		[KSPField(isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Electric Charge required (connected)", guiUnits = "u/s")]
+		public float electricChargeRequiredConnected = 0.5f;
+
+		public float ElectricChargeRequiredIdle
+		{
+			get { return electricChargeRequiredIdle; }
+		}
+
+		public float ElectricChargeRequiredConnected
+		{
+			get { return electricChargeRequiredConnected; }
+		}
 
 		// attachement
 		public ConfigurableJoint attachJoint = null;
@@ -60,6 +97,15 @@ AttachNode referenceNode = null; // aktuell nur für second-dock genutzt... eige
 		[KSPField(guiActive = true, guiName = "State", guiFormat = "S")]
 		public string state = "Idle";
 
+		// Packed / OnRails
+
+		private int followOtherPort = 0;
+
+		private Vector3 otherPortRelativePosition;
+		private Quaternion otherPortRelativeRotation;
+
+		////////////////////////////////////////
+		// Constructor
 
 		public ModuleIRAttachment()
 		{
@@ -71,15 +117,75 @@ AttachNode referenceNode = null; // aktuell nur für second-dock genutzt... eige
 		public override void OnAwake()
 		{
 			DebugInit();
+		}
 
-			GameEvents.onVesselGoOnRails.Add(OnVesselGoOnRails);
-			GameEvents.onVesselGoOffRails.Add(OnVesselGoOffRails);
+		public override void OnLoad(ConfigNode node)
+		{
+			base.OnLoad(node);
 
-			GameEvents.onJointBreak.Add(OnJointBroken);
+			switch(attachType)
+			{
+			case AttachType.Part:
+				{
+					ConfigNode subNode = node.GetNode("PARTATTACH");
+					attachedPartId = uint.Parse(subNode.GetValue("attachedPartId"));
+				//	attachedVesselId = new Guid(subNode.GetValue("attachedVesselId"));
+					attachedBreakForce = float.Parse(subNode.GetValue("breakForce"));
+				}
+				break;
 
-	// FEHLER, nur wenn wir wirklich einer sind... zwar... na ja... evtl. wär's 'ne Idee... mal sehen dann -> dual-re-undock und so ginge nicht zwar bei anderen, aber... na ja... ist ja egal, oder?
-			// reicht doch, wenn ich das kann... oder nicht??
-//			part.dockingPorts.AddUnique(this);
+			case AttachType.Docked:
+				{
+					ConfigNode subNode = node.GetNode("DOCKEDVESSEL");
+					attachedPartId = uint.Parse(subNode.GetValue("attachedPartId"));
+					attachedVesselId = new Guid(subNode.GetValue("attachedVesselId"));
+					attachedBreakForce = float.Parse(subNode.GetValue("breakForce"));
+					vesselInfo = new DockedVesselInfo();
+					vesselInfo.Load(subNode);
+				}
+				break;
+			}
+
+			if(node.HasValue("followOtherPort"))
+			{
+				followOtherPort = int.Parse(node.GetValue("followOtherPort"));
+
+				node.TryGetValue("otherPortRelativePosition", ref otherPortRelativePosition);
+				node.TryGetValue("otherPortRelativeRotation", ref otherPortRelativeRotation);
+			}
+		}
+
+		public override void OnSave(ConfigNode node)
+		{
+			base.OnSave(node);
+
+			switch(attachType)
+			{
+			case AttachType.Part:
+				{
+					ConfigNode subNode = node.AddNode("PARTATTACH"); // FEHLER, Add/GetNode ist doch defekt, kann man gar nicht nutzen, oder nicht?
+					subNode.AddValue("attachedPartId", attachedPartId.ToString());
+				//	subNode.AddValue("attachedVesselId", attachedVesselId.ToString());
+					subNode.AddValue("breakForce", attachedBreakForce);
+				}
+				break;
+
+			case AttachType.Docked:
+				{
+					ConfigNode subNode = node.AddNode("DOCKEDVESSEL");
+					subNode.AddValue("attachedPartId", attachedPartId.ToString());
+					subNode.AddValue("attachedVesselId", attachedVesselId.ToString());
+					subNode.AddValue("breakForce", attachedBreakForce);
+					vesselInfo.Save(subNode);
+				}
+				break;
+			}
+
+			if(followOtherPort != 0)
+			{
+				if(otherPortRelativePosition != null)	node.AddValue("otherPortRelativePosition", otherPortRelativePosition);
+				if(otherPortRelativeRotation != null)	node.AddValue("otherPortRelativeRotation", otherPortRelativeRotation);
+			}
 		}
 
 		public override void OnStart(StartState state)
@@ -88,6 +194,11 @@ AttachNode referenceNode = null; // aktuell nur für second-dock genutzt... eige
 
 			if(state == StartState.Editor) // FEHLER, müsste ich None abfangen?? wieso sollte das je aufgerufen werden???
 				return;
+
+			GameEvents.onVesselGoOnRails.Add(OnPack);
+			GameEvents.onVesselGoOffRails.Add(OnUnpack);
+
+			GameEvents.onJointBreak.Add(OnJointBroken);
 
 			electricResource = PartResourceLibrary.Instance.GetDefinition("ElectricCharge");
 
@@ -178,8 +289,8 @@ end:;
 		{
 		//	DetachContextMenu();
 
-			GameEvents.onVesselGoOnRails.Remove(OnVesselGoOnRails);
-			GameEvents.onVesselGoOffRails.Remove(OnVesselGoOffRails);
+			GameEvents.onVesselGoOnRails.Remove(OnPack);
+			GameEvents.onVesselGoOffRails.Remove(OnUnpack);
 
 			GameEvents.onJointBreak.Remove(OnJointBroken);
 
@@ -187,75 +298,34 @@ end:;
 				DetachGround();
 		}
 
-		public override void OnSave(ConfigNode node)
+		private void OnPack(Vessel v)
 		{
-			base.OnSave(node);
-
-			switch(attachType)
-			{
-			case AttachType.Part:
-				{
-					ConfigNode subNode = node.AddNode("PARTATTACH"); // FEHLER, Add/GetNode ist doch defekt, kann man gar nicht nutzen, oder nicht?
-					subNode.AddValue("attachedPartId", attachedPartId.ToString());
-				//	subNode.AddValue("attachedVesselId", attachedVesselId.ToString());
-					subNode.AddValue("breakForce", attachedBreakForce);
-				}
-				break;
-
-			case AttachType.Docked:
-				{
-					ConfigNode subNode = node.AddNode("DOCKEDVESSEL");
-					subNode.AddValue("attachedPartId", attachedPartId.ToString());
-					subNode.AddValue("attachedVesselId", attachedVesselId.ToString());
-					subNode.AddValue("breakForce", attachedBreakForce);
-					vesselInfo.Save(subNode);
-				}
-				break;
-			}
-		}
-
-		public override void OnLoad(ConfigNode node)
-		{
-			base.OnLoad(node);
-
-			switch(attachType)
-			{
-			case AttachType.Part:
-				{
-					ConfigNode subNode = node.GetNode("PARTATTACH");
-					attachedPartId = uint.Parse(subNode.GetValue("attachedPartId"));
-				//	attachedVesselId = new Guid(subNode.GetValue("attachedVesselId"));
-					attachedBreakForce = float.Parse(subNode.GetValue("breakForce"));
-				}
-				break;
-
-			case AttachType.Docked:
-				{
-					ConfigNode subNode = node.GetNode("DOCKEDVESSEL");
-					attachedPartId = uint.Parse(subNode.GetValue("attachedPartId"));
-					attachedVesselId = new Guid(subNode.GetValue("attachedVesselId"));
-					attachedBreakForce = float.Parse(subNode.GetValue("breakForce"));
-					vesselInfo = new DockedVesselInfo();
-					vesselInfo.Load(subNode);
-				}
-				break;
-			}
-		}
-
-		public void OnVesselGoOnRails(Vessel v)
-		{
-			if(part.vessel != v)
+			if(vessel != v)
 				return;
 
 			if(attachType == AttachType.Ground)
 				DetachGround();
 
 			part.Rigidbody.collisionDetectionMode = CollisionDetectionMode.Discrete;
+
+			if(attachType == AttachType.Part)
+			{
+				if(Vessel.GetDominantVessel(vessel, attachedPart.vessel) == attachedPart.vessel)
+				{
+					followOtherPort = 1;
+					VesselPositionManager.Register(part, attachedPart, true, out otherPortRelativePosition, out otherPortRelativeRotation);
+				}
+				else
+				{
+					followOtherPort = 2;
+					VesselPositionManager.Register(attachedPart, part, true, out otherPortRelativePosition, out otherPortRelativeRotation);
+				}
+			}
 		}
 
-		public void OnVesselGoOffRails(Vessel v)
+		private void OnUnpack(Vessel v)
 		{
-			if(part.vessel != v)
+			if(vessel != v)
 				return;
 
 			if(attachType == AttachType.Ground)
@@ -263,6 +333,12 @@ end:;
 
 			if(activated && (attachType == AttachType.None))
 				part.Rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+
+			if(attachType == AttachType.Part)
+			{
+				VesselPositionManager.Unregister((followOtherPort == 1) ? vessel : attachedPart.vessel);
+				followOtherPort = 0;
+			}
 		}
 
 // FEHLER, Reihenfolge??
@@ -341,7 +417,7 @@ end:;
 				StartCoroutine(WaitAndCheckJoint());
 		}
 
-		private IEnumerator WaitAndCheckJoint()
+		private IEnumerator WaitAndCheckJoint() 
 		{
 			yield return new WaitForFixedUpdate();
 
@@ -757,37 +833,6 @@ hostPart.vessel.SetRotation(hostPart.vessel.transform.rotation);
 		// Settings
 
 		[KSPField(isPersistant = true)] public bool activated = false;
-
-		////////////////////////////////////////
-		// Characteristics - values 'by design'
-
-		[KSPField(isPersistant = false)] public Vector3 rayDir = Vector3.down;
-		[KSPField(isPersistant = false)] public float rayLenght = 1;
-
-		[KSPField(isPersistant = false)] public float forceNeeded = 5;
-
-		[KSPField(isPersistant = false)] public float groundBreakForce = 15;
-		[KSPField(isPersistant = false)] public float partBreakForce = 10;
-
-		[KSPField(isPersistant = false)] public bool groundAttach = false;
-		[KSPField(isPersistant = false)] public bool partAttach = true;
-		[KSPField(isPersistant = false)] public bool dockedAttach = true;			// FEHLER, temp, das hier wäre normal false als default
-
-		[KSPField(isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Electric Charge required", guiUnits = "u/s")]
-		public float electricChargeRequiredIdle = 0.3f;
-
-		[KSPField(isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Electric Charge required (connected)", guiUnits = "u/s")]
-		public float electricChargeRequiredConnected = 0.5f;
-
-		public float ElectricChargeRequiredIdle
-		{
-			get { return electricChargeRequiredIdle; }
-		}
-
-		public float ElectricChargeRequiredConnected
-		{
-			get { return electricChargeRequiredConnected; }
-		}
 
 		////////////////////////////////////////
 		// Scaling

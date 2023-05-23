@@ -7,8 +7,8 @@
     <ProjectGuid>{CADE48C8-1CD3-421A-9919-6F4CCB101338}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>IR_ConnectionSystem</RootNamespace>
-    <AssemblyName>IR-ConnectionSystem</AssemblyName>
+    <RootNamespace>IRConnectionSystem</RootNamespace>
+    <AssemblyName>IRConnectionSystem</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -34,8 +34,9 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>C:\KerbalSpaceProgram_1.12.3\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="DockingFunctions">
-      <HintPath>..\..\..\DockingFunctions\DockingFunctions\DockingFunctions\bin\Debug\DockingFunctions.dll</HintPath>
+    <Reference Include="DockingFunctions, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\DockingFunctions\DockingFunctions\DockingFunctions\bin\Release\DockingFunctions.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="Microsoft.CSharp" />

@@ -85,8 +85,8 @@ namespace IR_ConnectionSystem.Module
 
 		public KFSMEvent on_release_passive;
 
-		public KFSMEvent on_dock;
-		public KFSMEvent on_undock;
+		public KFSMEvent on_dock_passive;
+		public KFSMEvent on_undock_passive;
 
 		public KFSMEvent on_enable;
 		public KFSMEvent on_disable;
@@ -267,11 +267,6 @@ namespace IR_ConnectionSystem.Module
 			};
 			st_latched_passive.OnLeave = delegate(KFSMState to)
 			{
-				if(to == st_passive)
-				{
-					otherPort = null;
-					dockedPartUId = 0;
-				}
 			};
 			fsm.AddState(st_latched_passive);
 
@@ -284,11 +279,6 @@ namespace IR_ConnectionSystem.Module
 			};
 			st_docked.OnLeave = delegate(KFSMState to)
 			{
-				if(to == st_passive)
-				{
-					otherPort = null;
-					dockedPartUId = 0;
-				}
 			};
 			fsm.AddState(st_docked);
 
@@ -301,8 +291,6 @@ namespace IR_ConnectionSystem.Module
 			};
 			st_preattached.OnLeave = delegate(KFSMState to)
 			{
-				otherPort = null;
-				dockedPartUId = 0;
 			};
 			fsm.AddState(st_preattached);
 
@@ -339,7 +327,7 @@ namespace IR_ConnectionSystem.Module
 			on_latch_passive = new KFSMEvent("Latched");
 			on_latch_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_latch_passive.GoToStateOnEvent = st_latched_passive;
-			fsm.AddEvent(on_latch_passive, st_captured_passive, st_docked);
+			fsm.AddEvent(on_latch_passive, st_captured_passive);
 
 			on_release_passive = new KFSMEvent("Released");
 			on_release_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
@@ -347,15 +335,15 @@ namespace IR_ConnectionSystem.Module
 			fsm.AddEvent(on_release_passive, st_captured_passive, st_latched_passive);
 
 
-			on_dock = new KFSMEvent("Dock");
-			on_dock.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_dock.GoToStateOnEvent = st_docked;
-			fsm.AddEvent(on_dock, st_latched_passive);
+			on_dock_passive = new KFSMEvent("Dock");
+			on_dock_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_dock_passive.GoToStateOnEvent = st_docked;
+			fsm.AddEvent(on_dock_passive, st_latched_passive);
 
-			on_undock = new KFSMEvent("Undock");
-			on_undock.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_undock.GoToStateOnEvent = st_latched_passive;
-			fsm.AddEvent(on_undock, st_docked, st_preattached);
+			on_undock_passive = new KFSMEvent("Undock");
+			on_undock_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_undock_passive.GoToStateOnEvent = st_latched_passive;
+			fsm.AddEvent(on_undock_passive, st_docked, st_preattached);
 
 
 			on_enable = new KFSMEvent("Enable");
@@ -376,7 +364,7 @@ namespace IR_ConnectionSystem.Module
 		{
 			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if(!vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
 				if((fsm != null) && fsm.Started)
@@ -390,7 +378,7 @@ namespace IR_ConnectionSystem.Module
 		{
 			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if(!vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
 				if((fsm != null) && fsm.Started)

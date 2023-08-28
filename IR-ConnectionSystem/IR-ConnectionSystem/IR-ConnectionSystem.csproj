@@ -39,7 +39,6 @@
       <HintPath>..\..\..\DockingFunctions\DockingFunctions\DockingFunctions\bin\Release\DockingFunctions.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="Microsoft.CSharp" />
     <Reference Include="UnityEngine">
       <HintPath>C:\KerbalSpaceProgram_1.12.3\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>

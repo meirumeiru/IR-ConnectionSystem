@@ -16,6 +16,8 @@ namespace IR_ConnectionSystem.Module
 
 	// FEHLER, wir arbeiten bei den Events nie mit "OnCheckCondition" sondern lösen alle manuell aus... kann man sich fragen, ob das gut ist, aber so lange der Event nur von einem Zustand her kommen kann, spielt das wie keine Rolle
 
+// FEHLER, -> general Rule: verbinden oder ähnliche Funktionen -> aktiv zuerst, dann passiv... trennen -> passiv zuerst, dann aktiv -> Idee: passiv ist nur dann "verbunden" oder "in Kontakt", wenn der aktive das auch ist
+
 	/*
 	 * captured = first contact, centering is running (no orientation)
 	 * latched  = centering has been done, weak connection (not latched in the way we would call it in reality)
@@ -106,12 +108,12 @@ namespace IR_ConnectionSystem.Module
 		public KFSMEvent on_approach;
 		public KFSMEvent on_distance;
 
+		public KFSMEvent on_capturing;
 		public KFSMEvent on_capture;
-		public KFSMEvent on_captured;
 
+		public KFSMEvent on_latching;
+		public KFSMEvent on_prelatch;
 		public KFSMEvent on_latch;
-		public KFSMEvent on_prelatched;
-		public KFSMEvent on_latched;
 
 		public KFSMEvent on_release;
 
@@ -627,6 +629,7 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 								dockedPartUId = otherPort.part.flightID;
 
 								fsm.RunEvent(on_approach);
+								otherPort.fsm.RunEvent(otherPort.on_approach_passive);
 								return;
 							}
 						}
@@ -651,7 +654,7 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 				otherPort.otherPort = this;
 				otherPort.dockedPartUId = part.flightID;
 
-				otherPort.fsm.RunEvent(otherPort.on_approach_passive);
+//				otherPort.fsm.RunEvent(otherPort.on_approach_passive);
 			};
 			st_approaching.OnFixedUpdate = delegate
 			{
@@ -680,7 +683,8 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 					{
 						if(autoCapture)
 						{
-							fsm.RunEvent(on_capture);
+							fsm.RunEvent(on_capturing);
+							otherPort.fsm.RunEvent(otherPort.on_capture_passive);
 
 							return;
 						}
@@ -711,16 +715,11 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 					}
 				}
 
+				otherPort.fsm.RunEvent(otherPort.on_distance_passive);
 				fsm.RunEvent(on_distance);
 			};
 			st_approaching.OnLeave = delegate(KFSMState to)
 			{
-				if(to == st_active)
-				{
-					inCaptureDistance = false;
-
-					otherPort.fsm.RunEvent(otherPort.on_distance_passive);
-				}
 			};
 			fsm.AddState(st_approaching);
 
@@ -737,7 +736,7 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 
 				Events["Release"].active = true;
 
-				otherPort.fsm.RunEvent(otherPort.on_capture_passive);
+//				otherPort.fsm.RunEvent(otherPort.on_capture_passive);
 			};
 			st_capturing.OnFixedUpdate = delegate
 			{
@@ -752,7 +751,8 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 				{
 					CaptureJoint.targetPosition -= diffpl;
 
-					fsm.RunEvent(on_captured);
+					fsm.RunEvent(on_capture);
+				//	otherPort.fsm.RunEvent(otherPort.on_capture_passive); -> we do this earlier, when calling on_capturing -> could also be done here (no idea what is better)
 				}
 			};
 			st_capturing.OnLeave = delegate(KFSMState to)
@@ -809,7 +809,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 					CaptureJoint.targetRotation = CaptureJointTargetRotation;
 					CaptureJoint.targetPosition = CaptureJointTargetPosition;
 
-					fsm.RunEvent(on_prelatched);
+					fsm.RunEvent(on_prelatch);
 				}
 			};
 			st_latching.OnLeave = delegate(KFSMState to)
@@ -827,7 +827,10 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			st_prelatched.OnFixedUpdate = delegate
 			{
 				if(--iPos < 0)
-					fsm.RunEvent(on_latched);
+				{
+					fsm.RunEvent(on_latch);
+					otherPort.fsm.RunEvent(otherPort.on_latch_passive);
+				}
 			};
 			st_prelatched.OnLeave = delegate(KFSMState to)
 			{
@@ -851,16 +854,11 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 				Events["Dock"].active = true;
 				Events["Undock"].active = false;
 
-//if(from == st_prelatched) // FEHLER, quickfix... das schöner machen mal -> wenn ich vom Docked komme, dann renne ich auch hier rein
-{
 				JointDrive angularDrive = new JointDrive { maximumForce = PhysicsGlobals.JointForce, positionSpring = 60000f, positionDamper = 0f };
 				CaptureJoint.angularXDrive = CaptureJoint.angularYZDrive = CaptureJoint.slerpDrive = angularDrive;
 
 				JointDrive linearDrive = new JointDrive { maximumForce = PhysicsGlobals.JointForce, positionSpring = PhysicsGlobals.JointForce, positionDamper = 0f };
 				CaptureJoint.xDrive = CaptureJoint.yDrive = CaptureJoint.zDrive = linearDrive;
-
-				otherPort.fsm.RunEvent(otherPort.on_latch_passive);
-}
 			};
 			st_latched.OnFixedUpdate = delegate
 			{
@@ -882,8 +880,8 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 
 				Events["Restore"].active = true;
 
-				if(otherPort != null)
-					otherPort.fsm.RunEvent(otherPort.on_release_passive);
+//				if(otherPort != null)
+//					otherPort.fsm.RunEvent(otherPort.on_release_passive);
 			};
 			st_released.OnFixedUpdate = delegate
 			{
@@ -892,12 +890,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 				DockDistance = distance.ToString();
 
 				if(distance > 1.1f * approachingDistance)
-				{
-					otherPort = null;
-					dockedPartUId = 0;
-
 					fsm.RunEvent(on_distance);
-				}
 			};
 			st_released.OnLeave = delegate(KFSMState to)
 			{
@@ -965,30 +958,30 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_distance.GoToStateOnEvent = st_active;
 			fsm.AddEvent(on_distance, st_approaching, st_released);
 
-			on_capture = new KFSMEvent("Capture");
+			on_capturing = new KFSMEvent("Capture");
+			on_capturing.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_capturing.GoToStateOnEvent = st_capturing;
+			fsm.AddEvent(on_capturing, st_approaching);
+
+			on_capture = new KFSMEvent("Captured");
 			on_capture.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_capture.GoToStateOnEvent = st_capturing;
-			fsm.AddEvent(on_capture, st_approaching);
-
-			on_captured = new KFSMEvent("Captured");
-			on_captured.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_captured.GoToStateOnEvent = st_captured;
-			fsm.AddEvent(on_captured, st_capturing);
+			on_capture.GoToStateOnEvent = st_captured;
+			fsm.AddEvent(on_capture, st_capturing);
 			
-			on_latch = new KFSMEvent("Latch");
+			on_latching = new KFSMEvent("Latch");
+			on_latching.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_latching.GoToStateOnEvent = st_latching;
+			fsm.AddEvent(on_latching, st_captured, st_capturing, st_approaching); // FEHLER, nicht sicher ob das auch von st_capturing und st_approaching her möglich sein muss... aber, vorerst ist es mal drin
+
+			on_prelatch = new KFSMEvent("Pre Latch");
+			on_prelatch.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_prelatch.GoToStateOnEvent = st_prelatched;
+			fsm.AddEvent(on_prelatch, st_latching);
+
+			on_latch = new KFSMEvent("Latched");
 			on_latch.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_latch.GoToStateOnEvent = st_latching;
-			fsm.AddEvent(on_latch, st_captured, st_capturing, st_approaching); // FEHLER, nicht sicher ob das auch von st_capturing und st_approaching her möglich sein muss... aber, vorerst ist es mal drin
-
-			on_prelatched = new KFSMEvent("Pre Latch");
-			on_prelatched.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_prelatched.GoToStateOnEvent = st_prelatched;
-			fsm.AddEvent(on_prelatched, st_latching);
-
-			on_latched = new KFSMEvent("Latched");
-			on_latched.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_latched.GoToStateOnEvent = st_latched;
-			fsm.AddEvent(on_latched, st_prelatched);
+			on_latch.GoToStateOnEvent = st_latched;
+			fsm.AddEvent(on_latch, st_prelatched);
 
 			on_release = new KFSMEvent("Released");
 			on_release.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
@@ -1131,7 +1124,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		{
 			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if(!vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
 				if((fsm != null) && fsm.Started)
@@ -1153,7 +1146,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		{
 			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if(!vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
 				if((fsm != null) && fsm.Started)
@@ -1222,19 +1215,23 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Capture")]
 		public void Capture()
 		{
-			fsm.RunEvent(on_capture);
+			fsm.RunEvent(on_capturing);
+			otherPort.fsm.RunEvent(otherPort.on_capture_passive);
 		}
 
 	// das ist das pull-back und eine Drehung (gleichzeitig)
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Latch")]
 		public void Latch()
 		{
-			fsm.RunEvent(on_latch);
+			fsm.RunEvent(on_latching);
 		}
 
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Release")]
 		public void Release()
 		{
+			if(otherPort != null)
+				otherPort.fsm.RunEvent(otherPort.on_release_passive);
+
 			fsm.RunEvent(on_release);
 		}
 
@@ -1253,7 +1250,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			CaptureJoint = null;
 
 			fsm.RunEvent(on_dock);
-			otherPort.fsm.RunEvent(otherPort.on_dock);
+			otherPort.fsm.RunEvent(otherPort.on_dock_passive);
 		}
 
 		public void DockToVessel(ModuleIRGF port)
@@ -1287,39 +1284,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			BuildCaptureJoint(otherPort);
 			BuildCaptureJoint2();
 
-/* FEHLER, ist glaub ich nicht nötig, weil wir danach sowieso in den latched modus gehen und somit der Joint neu gesetzt wird
-
-				CaptureJoint.slerpDrive =
-					new JointDrive
-					{
-						positionSpring = PhysicsGlobals.JointForce,
-						positionDamper = 0f,
-						maximumForce = PhysicsGlobals.JointForce
-					};
-*/
-
-// FEHLER, RB-Joint noch zurücksetzen
-
 			DockingHelper.RestoreCameraPosition(part);
-
-/*
-			otherPort.fsm.RunEvent(otherPort.on_undock);
-			fsm.RunEvent(on_undock);
-
-ahiSofort(position1, position2, position2, tm, tf);
-
-/* -> sowas noch einbauen dann...
- * 
-			if(undockPreAttached)
-			{
-				Decouple();
-				fsm.RunEvent(on_undock);
-				if(otherNode != null)
-					otherNode.OnOtherNodeUndock();
-				undockPreAttached = false;
-				return;
-			}
-*/
 		}
 
 		[KSPEvent(guiActive = true, guiActiveUnfocused = true, externalToEVAOnly = true, unfocusedRange = 2f, guiName = "#autoLOC_6001445")]
@@ -1330,8 +1295,8 @@ ahiSofort(position1, position2, position2, tm, tf);
 
 			DoUndock();
 
+			otherPort.fsm.RunEvent(otherPort.on_undock_passive);
 			fsm.RunEvent(on_undock);
-		//	otherPort.fsm.RunEvent(otherPort.on_undock);
 
 			if(oldvessel == FlightGlobals.ActiveVessel)
 			{

@@ -93,6 +93,5 @@
     <Compile Include="Utility\LineDrawer.cs" />
     <Compile Include="Utility\Logger.cs" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

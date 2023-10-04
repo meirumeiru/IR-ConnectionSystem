@@ -123,6 +123,8 @@ namespace IR_ConnectionSystem.Module
 		public KFSMEvent on_enable;
 		public KFSMEvent on_disable;
 
+		public KFSMEvent on_construction;
+
 		// Sounds
 
 /* FEHLER, Sound fehlt noch total -> ah und einige Servos spielen keinen Sound, was ist da falsch? -> hat nix mit LEE zu tun zwar
@@ -252,6 +254,8 @@ namespace IR_ConnectionSystem.Module
 			GameEvents.onVesselGoOffRails.Add(OnUnpack);
 
 		//	GameEvents.onFloatingOriginShift.Add(OnFloatingOriginShift);
+
+			GameEvents.OnEVAConstructionModePartDetached.Add(OnEVAConstructionModePartDetached);
 
 			nodeTransform = base.part.FindModelTransform(nodeTransformName);
 			if(!nodeTransform)
@@ -528,6 +532,8 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 			GameEvents.onVesselGoOffRails.Remove(OnUnpack);
 
 		//	GameEvents.onFloatingOriginShift.Remove(OnFloatingOriginShift);
+
+			GameEvents.OnEVAConstructionModePartDetached.Remove(OnEVAConstructionModePartDetached);
 		}
 
 		private void OnPack(Vessel v)
@@ -563,6 +569,23 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 				}
 
 		//		StartCoroutine(OnUnpackDelayed());
+			}
+		}
+
+		private void OnEVAConstructionModePartDetached(Vessel v, Part p)
+		{
+			if(part == p)
+			{
+				if(otherPort)
+				{
+					otherPort.otherPort = null;
+					otherPort.dockedPartUId = 0;
+					otherPort.fsm.RunEvent(otherPort.on_construction);
+				}
+
+				otherPort = null;
+				dockedPartUId = 0;
+				fsm.RunEvent(on_construction);
 			}
 		}
 
@@ -635,6 +658,9 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 						}
 					}
 				}
+
+				DockDistance = "-";
+				DockAngle = "-";
 			};
 			st_active.OnLeave = delegate(KFSMState to)
 			{
@@ -660,24 +686,21 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 			{
 				Vector3 distance = otherPort.nodeTransform.position - nodeTransform.position;
 
+				DockDistance = distance.magnitude.ToString();
+
+				Vector3 tvref = nodeTransform.TransformDirection(dockingOrientation);
+				Vector3 tv = otherPort.nodeTransform.TransformDirection(otherPort.dockingOrientation);
+				float ang = Vector3.SignedAngle(tvref, tv, -nodeTransform.forward);
+
+				ang = 360f + ang - (180f / snapCount);
+				ang %= (360f / snapCount);
+				ang -= (180f / snapCount);
+
+				DockAngle = ang.ToString();
+
 				if(distance.magnitude < captureDistance)
 				{
-					Vector3 tvref = nodeTransform.TransformDirection(dockingOrientation);
-					Vector3 tv = otherPort.nodeTransform.TransformDirection(otherPort.dockingOrientation);
-					float ang = Vector3.Angle(tvref, tv);
-
-					bool angleok = false;
-
-					for(int i = 0; i < snapCount; i++)
-					{
-						float ff = (360f / snapCount) * i;
-
-						if((ang > ff - 5f) && (ang < ff + 5f))
-							angleok = true;
-					}
-
-					DockDistance = distance.magnitude.ToString();
-					DockAngle = ang.ToString();
+					bool angleok = ((ang > -5f) && (ang < 5f));
 
 					if(angleok)
 					{
@@ -708,11 +731,7 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 					float angle = Vector3.Angle(nodeTransform.forward, -otherPort.nodeTransform.forward);
 
 					if(angle <= 15f)
-					{
-						DockDistance = distance.magnitude.ToString();
-						DockAngle = "-";
 						return;
-					}
 				}
 
 				otherPort.fsm.RunEvent(otherPort.on_distance_passive);
@@ -1009,6 +1028,12 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_disable.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_disable.GoToStateOnEvent = st_disabled;
 			fsm.AddEvent(on_disable, st_active);
+
+
+			on_construction = new KFSMEvent("Construction");
+			on_construction.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_construction.GoToStateOnEvent = st_disabled;
+			fsm.AddEvent(on_construction, st_active, st_approaching, st_capturing, st_captured, st_latching, st_prelatched, st_latched, st_released, st_docked, st_preattached);
 		}
 
 		// calculate position and orientation for st_capture

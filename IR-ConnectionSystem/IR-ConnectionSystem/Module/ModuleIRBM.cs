@@ -116,8 +116,9 @@ namespace IR_ConnectionSystem.Module
 		public KFSMEvent on_undock;
 		public KFSMEvent on_undock_passive;
 
-		public KFSMEvent on_enable;
 		public KFSMEvent on_disable;
+
+		public KFSMEvent on_construction;
 
 		// Sounds
 
@@ -248,6 +249,8 @@ namespace IR_ConnectionSystem.Module
 			GameEvents.onVesselGoOffRails.Add(OnUnpack);
 
 		//	GameEvents.onFloatingOriginShift.Add(OnFloatingOriginShift);
+
+			GameEvents.OnEVAConstructionModePartDetached.Add(OnEVAConstructionModePartDetached);
 
 			nodeTransform = base.part.FindModelTransform(nodeTransformName);
 			if(!nodeTransform)
@@ -515,6 +518,8 @@ namespace IR_ConnectionSystem.Module
 		{
 			GameEvents.onVesselGoOnRails.Remove(OnPack);
 			GameEvents.onVesselGoOffRails.Remove(OnUnpack);
+
+			GameEvents.OnEVAConstructionModePartDetached.Remove(OnEVAConstructionModePartDetached);
 		}
 
 		private void OnPack(Vessel v)
@@ -544,6 +549,23 @@ namespace IR_ConnectionSystem.Module
 						VesselPositionManager.Unregister(vessel);
 					followOtherPort = false;
 				}
+			}
+		}
+
+		private void OnEVAConstructionModePartDetached(Vessel v, Part p)
+		{
+			if(part == p)
+			{
+				if(otherPort)
+				{
+					otherPort.otherPort = null;
+					otherPort.dockedPartUId = 0;
+					otherPort.fsm.RunEvent(otherPort.on_construction);
+				}
+
+				otherPort = null;
+				dockedPartUId = 0;
+				fsm.RunEvent(on_construction);
 			}
 		}
 
@@ -618,6 +640,9 @@ namespace IR_ConnectionSystem.Module
 						}
 					}
 				}
+
+				DockDistance = "-";
+				DockAngle = "-";
 			};
 			st_active.OnLeave = delegate(KFSMState to)
 			{
@@ -666,24 +691,21 @@ namespace IR_ConnectionSystem.Module
 			{
 				Vector3 distance = otherPort.nodeTransform.position - nodeTransform.position;
 
+				DockDistance = distance.magnitude.ToString();
+
+				Vector3 tvref = nodeTransform.TransformDirection(dockingOrientation);
+				Vector3 tv = otherPort.nodeTransform.TransformDirection(otherPort.dockingOrientation);
+				float ang = Vector3.SignedAngle(tvref, tv, -nodeTransform.forward);
+
+				ang = 360f + ang - (180f / snapCount);
+				ang %= (360f / snapCount);
+				ang -= (180f / snapCount);
+
+				DockAngle = ang.ToString();
+
 				if(distance.magnitude < captureDistance)
 				{
-					Vector3 tvref = nodeTransform.TransformDirection(dockingOrientation);
-					Vector3 tv = otherPort.nodeTransform.TransformDirection(otherPort.dockingOrientation);
-					float ang = Vector3.Angle(tvref, tv);
-
-					DockDistance = distance.magnitude.ToString();
-					DockAngle = ang.ToString();
-
-					bool angleok = false;
-
-					for(int i = 0; i < snapCount; i++)
-					{
-						float ff = (360f / snapCount) * i;
-
-						if((ang > ff - 5f) && (ang < ff + 5f))
-							angleok = true;
-					}
+					bool angleok = ((ang > -5f) && (ang < 5f));
 
 					if(angleok)
 					{
@@ -706,11 +728,7 @@ namespace IR_ConnectionSystem.Module
 					float angle = Vector3.Angle(nodeTransform.forward, -otherPort.nodeTransform.forward);
 
 					if(angle <= 15f)
-					{
-						DockDistance = distance.magnitude.ToString();
-						DockAngle = "-";
 						return;
-					}
 				}
 
 				otherPort.fsm.RunEvent(otherPort.on_distance_passive);
@@ -838,7 +856,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			st_latched_passive = new KFSMState("Latched (passive)");
 			st_latched_passive.OnEnter = delegate(KFSMState from)
 			{
-				Events["MakeActive"].guiActive = true;
+				Events["MakeActive"].guiActive = ((supportedModes & 2) != 0);
 			};
 			st_latched_passive.OnFixedUpdate = delegate
 			{
@@ -906,12 +924,12 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_setactive = new KFSMEvent("Make Active");
 			on_setactive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_setactive.GoToStateOnEvent = st_active;
-			fsm.AddEvent(on_setactive, st_passive);
+			fsm.AddEvent(on_setactive, st_passive, st_disabled);
 
 			on_setpassive = new KFSMEvent("Make Passive");
 			on_setpassive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_setpassive.GoToStateOnEvent = st_passive;
-			fsm.AddEvent(on_setpassive, st_active);
+			fsm.AddEvent(on_setpassive, st_active, st_disabled);
 
 
 			on_approach = new KFSMEvent("Approaching");
@@ -987,15 +1005,16 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			fsm.AddEvent(on_undock_passive, st_docked, st_preattached);
 
 
-			on_enable = new KFSMEvent("Enable");
-			on_enable.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_enable.GoToStateOnEvent = st_passive;
-			fsm.AddEvent(on_enable, st_disabled);
-
 			on_disable = new KFSMEvent("Disable");
 			on_disable.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_disable.GoToStateOnEvent = st_disabled;
 			fsm.AddEvent(on_disable, st_active, st_passive);
+
+
+			on_construction = new KFSMEvent("Construction");
+			on_construction.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_construction.GoToStateOnEvent = st_disabled;
+			fsm.AddEvent(on_construction, st_active, st_passive, st_approaching, st_approaching_passive, st_latching, st_prelatched, st_latched, st_latched_passive, st_docked, st_preattached);
 		}
 
 		// calculate position and orientation for st_capture
@@ -1173,7 +1192,10 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 
 		public void Enable()
 		{
-			fsm.RunEvent(on_enable);
+			if((supportedModes & 1) != 0)
+				fsm.RunEvent(on_setpassive);
+			else if((supportedModes & 2) != 0)
+				fsm.RunEvent(on_setactive);
 		}
 
 		public void Disable()
@@ -1185,9 +1207,9 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		public void TogglePort()
 		{
 			if(fsm.CurrentState == st_disabled)
-				fsm.RunEvent(on_enable);
+				Enable();
 			else
-				fsm.RunEvent(on_disable);
+				Disable();
 		}
 
 		public void SetActive()
@@ -1206,9 +1228,9 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		public void ToggleMode()
 		{
 			if(fsm.CurrentState == st_passive)
-				fsm.RunEvent(on_setactive);
+				SetActive();
 			else if(fsm.CurrentState == st_active)
-				fsm.RunEvent(on_setpassive);
+				SetPassive();
 		}
 
 // FEHLER, nicht so tolle Funktion

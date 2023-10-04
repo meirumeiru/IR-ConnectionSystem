@@ -91,6 +91,8 @@ namespace IR_ConnectionSystem.Module
 		public KFSMEvent on_enable;
 		public KFSMEvent on_disable;
 
+		public KFSMEvent on_construction;
+
 		// Capturing / Docking
 
 		public ModuleIRLEE otherPort;
@@ -155,6 +157,8 @@ namespace IR_ConnectionSystem.Module
 			evtSetAsTarget = base.Events["SetAsTarget"];
 			evtUnsetTarget = base.Events["UnsetTarget"];
 
+			GameEvents.OnEVAConstructionModePartDetached.Add(OnEVAConstructionModePartDetached);
+
 			nodeTransform = base.part.FindModelTransform(nodeTransformName);
 			if(!nodeTransform)
 			{
@@ -204,6 +208,28 @@ namespace IR_ConnectionSystem.Module
 			SetupFSM();
 
 			fsm.StartFSM(DockStatus);
+		}
+
+		public void OnDestroy()
+		{
+			GameEvents.OnEVAConstructionModePartDetached.Remove(OnEVAConstructionModePartDetached);
+		}
+
+		private void OnEVAConstructionModePartDetached(Vessel v, Part p)
+		{
+			if(part == p)
+			{
+				if(otherPort)
+				{
+					otherPort.otherPort = null;
+					otherPort.dockedPartUId = 0;
+					otherPort.fsm.RunEvent(otherPort.on_construction);
+				}
+
+				otherPort = null;
+				dockedPartUId = 0;
+				fsm.RunEvent(on_construction);
+			}
 		}
 
 		////////////////////////////////////////
@@ -355,6 +381,12 @@ namespace IR_ConnectionSystem.Module
 			on_disable.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_disable.GoToStateOnEvent = st_disabled;
 			fsm.AddEvent(on_disable, st_passive);
+
+
+			on_construction = new KFSMEvent("Construction");
+			on_construction.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
+			on_construction.GoToStateOnEvent = st_disabled;
+			fsm.AddEvent(on_construction, st_passive, st_approaching_passive, st_captured_passive, st_latched_passive, st_docked, st_preattached);
 		}
 
 		////////////////////////////////////////

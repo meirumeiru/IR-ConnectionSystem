@@ -755,7 +755,7 @@ hostPart.vessel.SetRotation(hostPart.vessel.transform.rotation);
 
 			LastPowerDrawRate = amountConsumed / TimeWarp.fixedDeltaTime;
 
-			return amountConsumed == amountToConsume;
+			return amountConsumed >= amountToConsume * 0.95;
 		}
 
 		////////////////////////////////////////

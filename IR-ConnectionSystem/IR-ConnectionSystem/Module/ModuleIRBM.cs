@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,7 +61,7 @@ namespace IR_ConnectionSystem.Module
 		public float breakingTorque = 100f;
 
 		[KSPField(isPersistant = false)]
-		public string nodeName = "";                // FEHLER, mal sehen wozu wir den dann nutzen könnten
+		public string nodeName = "";				// FEHLER, mal sehen wozu wir den dann nutzen könnten
 
 
 		[KSPField(isPersistant = true)]
@@ -77,19 +77,19 @@ namespace IR_ConnectionSystem.Module
 
 		public KerbalFSM fsm;
 
-		public KFSMState st_active;         // "active" / "searching"
-		public KFSMState st_passive;        // "passive"
+		public KFSMState st_active;			// "active" / "searching"
+		public KFSMState st_passive;		// "passive"
 
-		public KFSMState st_approaching;    // port found
+		public KFSMState st_approaching;	// port found
 		public KFSMState st_approaching_passive;
 
-		public KFSMState st_latching;       // orienting and retracting in progress
-		public KFSMState st_prelatched;     // ready to dock
+		public KFSMState st_latching;		// orienting and retracting in progress
+		public KFSMState st_prelatched;		// ready to dock
 
-		public KFSMState st_latched;        // docked
+		public KFSMState st_latched;		// docked
 		public KFSMState st_latched_passive;
 
-		public KFSMState st_docked;         // docked or docked_to_same_vessel
+		public KFSMState st_docked;			// docked or docked_to_same_vessel
 		public KFSMState st_preattached;
 
 		public KFSMState st_disabled;
@@ -125,18 +125,18 @@ namespace IR_ConnectionSystem.Module
 
 		// Sounds
 
-		/* FEHLER, Sound fehlt noch total -> ah und einige Servos spielen keinen Sound, was ist da falsch? -> hat nix mit LEE zu tun zwar
+/* FEHLER, Sound fehlt noch total -> ah und einige Servos spielen keinen Sound, was ist da falsch? -> hat nix mit LEE zu tun zwar
 
-				[KSPField(isPersistant = false)] public string preAttachSoundFilePath = "";
-				[KSPField(isPersistant = false)] public string latchSoundFilePath = "";
-				[KSPField(isPersistant = false)] public string detachSoundFilePath = "";
+		[KSPField(isPersistant = false)] public string preAttachSoundFilePath = "";
+		[KSPField(isPersistant = false)] public string latchSoundFilePath = "";
+		[KSPField(isPersistant = false)] public string detachSoundFilePath = "";
+		
+		[KSPField(isPersistant = false)] public string activatingSoundFilePath = "";
+		[KSPField(isPersistant = false)] public string activatedSoundFilePath = "";
+		[KSPField(isPersistant = false)] public string deactivatingSoundFilePath = "";
 
-				[KSPField(isPersistant = false)] public string activatingSoundFilePath = "";
-				[KSPField(isPersistant = false)] public string activatedSoundFilePath = "";
-				[KSPField(isPersistant = false)] public string deactivatingSoundFilePath = "";
-
-				protected SoundSource soundSound = null;
-		*/
+		protected SoundSource soundSound = null;
+*/
 
 		// Capturing / Docking
 
@@ -153,7 +153,7 @@ namespace IR_ConnectionSystem.Module
 		private Quaternion CaptureJointTargetRotation;
 		private Vector3 CaptureJointTargetPosition;
 
-		private Vector3 CaptureJointWoherIchKomme;  // FEHLER, alles Müll hier
+		private Vector3 CaptureJointWoherIchKomme;	// FEHLER, alles Müll hier
 
 		private float _rotStep;
 		float _transstep = 0.0005f;
@@ -187,26 +187,26 @@ namespace IR_ConnectionSystem.Module
 		{
 			base.OnLoad(node);
 
-			if (node.HasValue("state"))
+			if(node.HasValue("state"))
 				DockStatus = node.GetValue("state");
 			else
 				DockStatus = "Inactive";
 
-			if (node.HasValue("dockUId"))
+			if(node.HasValue("dockUId"))
 				dockedPartUId = uint.Parse(node.GetValue("dockUId"));
 
-			if (node.HasValue("docked"))
+			if(node.HasValue("docked"))
 				docked = bool.Parse(node.GetValue("docked"));
 
-			if (node.HasNode("DOCKEDVESSEL"))
+			if(node.HasNode("DOCKEDVESSEL"))
 			{
 				vesselInfo = new DockedVesselInfo();
 				vesselInfo.Load(node.GetNode("DOCKEDVESSEL"));
 			}
 
-			// FEHLER, hier fehlt noch Zeugs
+// FEHLER, hier fehlt noch Zeugs
 
-			if (node.HasValue("followOtherPort"))
+			if(node.HasValue("followOtherPort"))
 			{
 				followOtherPort = bool.Parse(node.GetValue("followOtherPort"));
 
@@ -227,17 +227,17 @@ namespace IR_ConnectionSystem.Module
 
 			node.AddValue("docked", docked);
 
-			if (vesselInfo != null)
+			if(vesselInfo != null)
 				vesselInfo.Save(node.AddNode("DOCKEDVESSEL"));
 
-			// FEHLER, hier fehlt noch Zeugs
+// FEHLER, hier fehlt noch Zeugs
 
 			node.AddValue("followOtherPort", followOtherPort);
 
-			if (followOtherPort)
+			if(followOtherPort)
 			{
-				if (otherPortRelativePosition != null) node.AddValue("otherPortRelativePosition", otherPortRelativePosition);
-				if (otherPortRelativeRotation != null) node.AddValue("otherPortRelativeRotation", otherPortRelativeRotation);
+				if(otherPortRelativePosition != null)	node.AddValue("otherPortRelativePosition", otherPortRelativePosition);
+				if(otherPortRelativeRotation != null)	node.AddValue("otherPortRelativeRotation", otherPortRelativeRotation);
 			}
 		}
 
@@ -248,28 +248,28 @@ namespace IR_ConnectionSystem.Module
 			evtSetAsTarget = base.Events["SetAsTarget"];
 			evtUnsetTarget = base.Events["UnsetTarget"];
 
-			if (state == StartState.Editor)
+			if(state == StartState.Editor)
 				return;
 
 			GameEvents.onVesselGoOnRails.Add(OnPack);
 			GameEvents.onVesselGoOffRails.Add(OnUnpack);
 
-			//	GameEvents.onFloatingOriginShift.Add(OnFloatingOriginShift);
+		//	GameEvents.onFloatingOriginShift.Add(OnFloatingOriginShift);
 
 			GameEvents.OnEVAConstructionModePartDetached.Add(OnEVAConstructionModePartDetached);
 
 			nodeTransform = base.part.FindModelTransform(nodeTransformName);
-			if (!nodeTransform)
+			if(!nodeTransform)
 			{
 				Debug.LogWarning("[Docking Node Module]: WARNING - No node transform found with name " + nodeTransformName, base.part.gameObject);
 				return;
 			}
-			if (controlTransformName == string.Empty)
+			if(controlTransformName == string.Empty)
 				controlTransform = base.part.transform;
 			else
 			{
 				controlTransform = base.part.FindModelTransform(controlTransformName);
-				if (!controlTransform)
+				if(!controlTransform)
 				{
 					Debug.LogWarning("[Docking Node Module]: WARNING - No control transform found with name " + controlTransformName, base.part.gameObject);
 					controlTransform = base.part.transform;
@@ -286,9 +286,9 @@ namespace IR_ConnectionSystem.Module
 		{
 			ModuleDockingNode DockingNode = part.FindModuleImplementing<ModuleDockingNode>();
 
-			if (DockingNode)
+			if(DockingNode)
 			{
-				while ((DockingNode.fsm == null) || (!DockingNode.fsm.Started))
+				while((DockingNode.fsm == null) || (!DockingNode.fsm.Started))
 					yield return null;
 
 				DockingNode.fsm.RunEvent(DockingNode.on_disable);
@@ -312,162 +312,162 @@ namespace IR_ConnectionSystem.Module
 			Events["EnableXFeed"].active = !crossfeed;
 			Events["DisableXFeed"].active = crossfeed;
 
-			if (dockedPartUId != 0)
+			if(dockedPartUId != 0)
 			{
 				Part otherPart;
 
-				while (!(otherPart = FlightGlobals.FindPartByID(dockedPartUId)))
+				while(!(otherPart = FlightGlobals.FindPartByID(dockedPartUId)))
 					yield return null;
 
 				otherPort = otherPart.GetComponent<ModuleIRBM>();
 
-				// FEHLER, logo, das könnte auch er laden... aber... na ja...
+		// FEHLER, logo, das könnte auch er laden... aber... na ja...
 				otherPort.otherPort = this;
 				otherPort.dockedPartUId = part.flightID;
 			}
 
-			/* FEHLER, Zeug reaktivieren und neu schreiben
-						if((DockStatus == "Extending ring")
-						|| (DockStatus == "Retracting ring")
-						|| (DockStatus == "Searching")
-						|| (DockStatus == "Approaching")
-						|| (DockStatus == "Push ring")
-						|| (DockStatus == "Restore ring"))
-						{
-							BuildRingObject();
-							ActiveJoint = BuildActiveJoint();
+/* FEHLER, Zeug reaktivieren und neu schreiben
+			if((DockStatus == "Extending ring")
+			|| (DockStatus == "Retracting ring")
+			|| (DockStatus == "Searching")
+			|| (DockStatus == "Approaching")
+			|| (DockStatus == "Push ring")
+			|| (DockStatus == "Restore ring"))
+			{
+				BuildRingObject();
+				ActiveJoint = BuildActiveJoint();
 
-							RingObject.transform.position = part.transform.TransformPoint(_state.ringPosition);
-							RingObject.transform.rotation = part.transform.rotation * _state.ringRotation;
+				RingObject.transform.position = part.transform.TransformPoint(_state.ringPosition);
+				RingObject.transform.rotation = part.transform.rotation * _state.ringRotation;
 
-							extendPosition = _state.extendPosition;
+				extendPosition = _state.extendPosition;
 
-							ActiveJoint.targetPosition = _state.activeJointTargetPosition;
-							ActiveJoint.targetRotation = _state.activeJointTargetRotation;
+				ActiveJoint.targetPosition = _state.activeJointTargetPosition;
+				ActiveJoint.targetRotation = _state.activeJointTargetRotation;
 
-							_pushStep = _state._pushStep;
+				_pushStep = _state._pushStep;
 
-							// Pack
+				// Pack
 
-							RingObject.GetComponent<Rigidbody>().isKinematic = true;
-							RingObject.GetComponent<Rigidbody>().detectCollisions = false;
+				RingObject.GetComponent<Rigidbody>().isKinematic = true;
+				RingObject.GetComponent<Rigidbody>().detectCollisions = false;
 
-							RingObject.transform.parent = transform;
-						}
+				RingObject.transform.parent = transform;
+			}
 
-						if(DockStatus == "Capturing")
-						{
-							BuildRingObject();
-							ActiveJoint = BuildActiveJoint();
+			if(DockStatus == "Capturing")
+			{
+				BuildRingObject();
+				ActiveJoint = BuildActiveJoint();
 
-							RingObject.transform.position = otherPort.transform.TransformPoint(_state.originalRingObjectLocalPosition);
-							RingObject.transform.rotation = otherPort.transform.rotation * _state.originalRingObjectLocalRotation;
+				RingObject.transform.position = otherPort.transform.TransformPoint(_state.originalRingObjectLocalPosition);
+				RingObject.transform.rotation = otherPort.transform.rotation * _state.originalRingObjectLocalRotation;
 
-							extendPosition = _state.extendPosition;
+				extendPosition = _state.extendPosition;
 
-							ActiveJoint.targetPosition = _state.activeJointTargetPosition;
-							ActiveJoint.targetRotation = _state.activeJointTargetRotation;
+				ActiveJoint.targetPosition = _state.activeJointTargetPosition;
+				ActiveJoint.targetRotation = _state.activeJointTargetRotation;
 
-							_pushStep = _state._pushStep;
+				_pushStep = _state._pushStep;
 
-					// FEHLER, hier machen wir wieder einen super schwachen Joint und fangen neu an mit dem Latching... das ist so gewollt (im Moment zumindest)
-							BuildCaptureJoint(otherPort);
-							BuildCaptureJoint2();
+		// FEHLER, hier machen wir wieder einen super schwachen Joint und fangen neu an mit dem Latching... das ist so gewollt (im Moment zumindest)
+				BuildCaptureJoint(otherPort);
+				BuildCaptureJoint2();
 
-							// Pack
+				// Pack
 
-							ringRelativePosition = RingObject.transform.localPosition;
-							ringRelativeRotation = RingObject.transform.localRotation;
+				ringRelativePosition = RingObject.transform.localPosition;
+				ringRelativeRotation = RingObject.transform.localRotation;
 
-							RingObject.transform.parent = transform;
+				RingObject.transform.parent = transform;
 
-							otherPortRelativePosition = _state.otherPortRelativePosition;
-							otherPortRelativeRotation = _state.otherPortRelativeRotation;
+				otherPortRelativePosition = _state.otherPortRelativePosition;
+				otherPortRelativeRotation = _state.otherPortRelativeRotation;
 
-							followOtherPort = true;
-						}
+				followOtherPort = true;
+			}
 
-						if((DockStatus == "Captured")
-						|| (DockStatus == "Retracting ring"))
-						{
-							BuildRingObject();
-							ActiveJoint = BuildActiveJoint();
+			if((DockStatus == "Captured")
+			|| (DockStatus == "Retracting ring"))
+			{
+				BuildRingObject();
+				ActiveJoint = BuildActiveJoint();
 
-							RingObject.transform.position = otherPort.transform.TransformPoint(_state.originalRingObjectLocalPosition);
-							RingObject.transform.rotation = otherPort.transform.rotation * _state.originalRingObjectLocalRotation;
+				RingObject.transform.position = otherPort.transform.TransformPoint(_state.originalRingObjectLocalPosition);
+				RingObject.transform.rotation = otherPort.transform.rotation * _state.originalRingObjectLocalRotation;
 
-							extendPosition = _state.extendPosition;
+				extendPosition = _state.extendPosition;
 
-							ActiveJoint.targetPosition = _state.activeJointTargetPosition;
-							ActiveJoint.targetRotation = _state.activeJointTargetRotation;
+				ActiveJoint.targetPosition = _state.activeJointTargetPosition;
+				ActiveJoint.targetRotation = _state.activeJointTargetRotation;
 
-							_pushStep = _state._pushStep;
+				_pushStep = _state._pushStep;
 
-					// FEHLER, hier machen wir wieder einen super schwachen Joint und fangen neu an mit dem Latching... das ist so gewollt (im Moment zumindest)
+		// FEHLER, hier machen wir wieder einen super schwachen Joint und fangen neu an mit dem Latching... das ist so gewollt (im Moment zumindest)
 
-							BuildCaptureJoint(otherPort);
-							BuildCaptureJoint2();
+				BuildCaptureJoint(otherPort);
+				BuildCaptureJoint2();
 
-							RingObject.transform.localPosition =
-									_capturePositionB;
+				RingObject.transform.localPosition =
+						_capturePositionB;
 
-							RingObject.transform.localRotation =
-									_captureRotationB;
+				RingObject.transform.localRotation =
+						_captureRotationB;
 
-							iCapturePosition = 25;
+				iCapturePosition = 25;
 
-							float f, d;
+				float f, d;
 
-							f = 10000f * iCapturePosition;
-							d = 0.001f;
+				f = 10000f * iCapturePosition;
+				d = 0.001f;
 
-							JointDrive drive = new JointDrive
-							{
-								positionSpring = f,
-								positionDamper = d,
-								maximumForce = f
-							};
+				JointDrive drive = new JointDrive
+				{
+					positionSpring = f,
+					positionDamper = d,
+					maximumForce = f
+				};
 
-							CaptureJoint.xDrive = drive;
-							CaptureJoint.yDrive = drive;
-							CaptureJoint.zDrive = drive;
+				CaptureJoint.xDrive = drive;
+				CaptureJoint.yDrive = drive;
+				CaptureJoint.zDrive = drive;
 
-							CaptureJoint.slerpDrive = drive;
+				CaptureJoint.slerpDrive = drive;
 
-							// Pack
+				// Pack
 
-							ringRelativePosition = RingObject.transform.localPosition;
-							ringRelativeRotation = RingObject.transform.localRotation;
+				ringRelativePosition = RingObject.transform.localPosition;
+				ringRelativeRotation = RingObject.transform.localRotation;
 
-							RingObject.transform.parent = transform;
+				RingObject.transform.parent = transform;
 
-							otherPortRelativePosition = _state.otherPortRelativePosition;
-							otherPortRelativeRotation = _state.otherPortRelativeRotation;
+				otherPortRelativePosition = _state.otherPortRelativePosition;
+				otherPortRelativeRotation = _state.otherPortRelativeRotation;
 
-							followOtherPort = true;
-						}
+				followOtherPort = true;
+			}
 
-			// FEHLER, fehlt noch total
-						if(DockStatus == "Pre Latched")
-						{
-						}
+// FEHLER, fehlt noch total
+			if(DockStatus == "Pre Latched")
+			{
+			}
 
-			*/
-			if ((DockStatus == "Inactive")
+*/
+			if((DockStatus == "Inactive")
 			|| ((DockStatus == "Attached") && (otherPort == null))) // fix damaged state (just in case)
 			{
-				// FEHLER, Frage: warum kann das passieren, dass hier "Attached" und null ist? hmm? woher kommt das?
+// FEHLER, Frage: warum kann das passieren, dass hier "Attached" und null ist? hmm? woher kommt das?
 
 				// fix state if attached to other port
 
-				if (referenceAttachNode != string.Empty)
+				if(referenceAttachNode != string.Empty)
 				{
 					AttachNode node = part.FindAttachNode(referenceAttachNode);
-					if ((node != null) && node.attachedPart)
+					if((node != null) && node.attachedPart)
 					{
 						ModuleIRBM _otherPort = node.attachedPart.GetComponent<ModuleIRBM>();
 
-						if (_otherPort)
+						if(_otherPort)
 						{
 							otherPort = _otherPort;
 							dockedPartUId = otherPort.part.flightID;
@@ -479,41 +479,41 @@ namespace IR_ConnectionSystem.Module
 				}
 			}
 
-			// FEHLER wenn ich nicht disabled bin, dann meinen GF disablen... so oder so... -> und das dort auch noch reinnehmen in die st_^'s
+// FEHLER wenn ich nicht disabled bin, dann meinen GF disablen... so oder so... -> und das dort auch noch reinnehmen in die st_^'s
 
 			SetupFSM();
 
-			if ((DockStatus == "Approaching")
-			|| (DockStatus == "Latching")       // not required
-			|| (DockStatus == "Pre Latched")    // not required
+			if((DockStatus == "Approaching")
+			|| (DockStatus == "Latching")		// not required
+			|| (DockStatus == "Pre Latched")	// not required
 			|| (DockStatus == "Latched"))
 			{
-				// FEHLER
-				//nope, ich muss alles bauen von dem Teil da... gut, auf den fsm von ihm kann ich zwar warten... das stimmt wohl
-				//ok, ansehen, dass wir's koordinieren
+// FEHLER
+//nope, ich muss alles bauen von dem Teil da... gut, auf den fsm von ihm kann ich zwar warten... das stimmt wohl
+//ok, ansehen, dass wir's koordinieren
 
-				if (otherPort != null)
+				if(otherPort != null)
 				{
-					while (!otherPort.part.started || (otherPort.fsm == null) || (!otherPort.fsm.Started))
+					while(!otherPort.part.started || (otherPort.fsm == null) || (!otherPort.fsm.Started))
 						yield return null;
 				}
 			}
 
-			// FEHLER, verfeinern, die Zustände
-			if (DockStatus == "Latched")
+				// FEHLER, verfeinern, die Zustände
+			if(DockStatus == "Latched")
 			{
 				BuildCaptureJoint(otherPort);
 				BuildCaptureJoint2();
 			}
 
-			if (DockStatus == "Docked")
+			if(DockStatus == "Docked")
 			{
-				if (vessel == otherPort.vessel)
+				if(vessel == otherPort.vessel)
 					docked = true;
 
 				otherPort.DockStatus = "Docked";
 
-				if (Vessel.GetDominantVessel(vessel, otherPort.vessel) == vessel)
+				if(Vessel.GetDominantVessel(vessel, otherPort.vessel) == vessel)
 					DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 			}
 
@@ -530,12 +530,12 @@ namespace IR_ConnectionSystem.Module
 
 		private void OnPack(Vessel v)
 		{
-			if (vessel == v)
+			if(vessel == v)
 			{
-				if ((DockStatus == "Latched")
+				if((DockStatus == "Latched")
 				|| (DockStatus == "Latched (passive)"))
 				{
-					if (Vessel.GetDominantVessel(vessel, otherPort.vessel) == otherPort.vessel)
+					if(Vessel.GetDominantVessel(vessel, otherPort.vessel) == otherPort.vessel)
 					{
 						followOtherPort = true;
 						VesselPositionManager.Register(part, otherPort.part, true, out otherPortRelativePosition, out otherPortRelativeRotation);
@@ -546,12 +546,12 @@ namespace IR_ConnectionSystem.Module
 
 		private void OnUnpack(Vessel v)
 		{
-			if (vessel == v)
+			if(vessel == v)
 			{
-				if ((DockStatus == "Latched")
+				if((DockStatus == "Latched")
 				|| (DockStatus == "Latched (passive)"))
 				{
-					if (followOtherPort)
+					if(followOtherPort)
 						VesselPositionManager.Unregister(vessel);
 					followOtherPort = false;
 				}
@@ -560,9 +560,9 @@ namespace IR_ConnectionSystem.Module
 
 		private void OnEVAConstructionModePartDetached(Vessel v, Part p)
 		{
-			if (part == p)
+			if(part == p)
 			{
-				if (otherPort)
+				if(otherPort)
 				{
 					otherPort.otherPort = null;
 					otherPort.dockedPartUId = 0;
@@ -583,7 +583,7 @@ namespace IR_ConnectionSystem.Module
 			fsm = new KerbalFSM();
 
 			st_active = new KFSMState("Active");
-			st_active.OnEnter = delegate (KFSMState from)
+			st_active.OnEnter = delegate(KFSMState from)
 			{
 				otherPort = null;
 				dockedPartUId = 0;
@@ -598,43 +598,43 @@ namespace IR_ConnectionSystem.Module
 			{
 				Vector3 distance; float angle;
 
-				for (int i = 0; i < FlightGlobals.VesselsLoaded.Count; i++)
+				for(int i = 0; i < FlightGlobals.VesselsLoaded.Count; i++)
 				{
 					Vessel vessel = FlightGlobals.VesselsLoaded[i];
 
-					if (vessel.packed
+					if(vessel.packed
 						/*|| (vessel == part.vessel)*/) // no docking to ourself is possible
 						continue;
 
-					for (int j = 0; j < vessel.dockingPorts.Count; j++)
+					for(int j = 0; j < vessel.dockingPorts.Count; j++)
 					{
 						PartModule partModule = vessel.dockingPorts[j];
 
-						if ((partModule.part == null)
+						if((partModule.part == null)
 						/*|| (partModule.part == part)*/ // no docking to ourself is possible
 						|| (partModule.part.State == PartStates.DEAD))
 							continue;
 
 						ModuleIRBM _otherPort = partModule.GetComponent<ModuleIRBM>();
 
-						if (_otherPort == null)
+						if(_otherPort == null)
 							continue;
 
-						// FEHLER, gender beachten
+// FEHLER, gender beachten
 
-						if (_otherPort.fsm.CurrentState != _otherPort.st_passive)
+						if(_otherPort.fsm.CurrentState != _otherPort.st_passive)
 							continue;
 
 						distance = _otherPort.nodeTransform.position - nodeTransform.position;
 
-						if (distance.magnitude < detectionDistance)
+						if(distance.magnitude < detectionDistance)
 						{
 							angle = Vector3.Angle(nodeTransform.forward, -_otherPort.nodeTransform.forward);
 
 							DockDistance = distance.magnitude.ToString();
 							DockAngle = "-";
 
-							if ((angle <= 15f) && (distance.magnitude <= approachingDistance))
+							if((angle <= 15f) && (distance.magnitude <= approachingDistance))
 							{
 								otherPort = _otherPort;
 								dockedPartUId = otherPort.part.flightID;
@@ -650,7 +650,7 @@ namespace IR_ConnectionSystem.Module
 				DockDistance = "-";
 				DockAngle = "-";
 			};
-			st_active.OnLeave = delegate (KFSMState to)
+			st_active.OnLeave = delegate(KFSMState to)
 			{
 				Events["TogglePort"].active = false;
 
@@ -659,7 +659,7 @@ namespace IR_ConnectionSystem.Module
 			fsm.AddState(st_active);
 
 			st_passive = new KFSMState("Passive");
-			st_passive.OnEnter = delegate (KFSMState from)
+			st_passive.OnEnter = delegate(KFSMState from)
 			{
 				otherPort = null;
 				dockedPartUId = 0;
@@ -673,7 +673,7 @@ namespace IR_ConnectionSystem.Module
 			st_passive.OnFixedUpdate = delegate
 			{
 			};
-			st_passive.OnLeave = delegate (KFSMState to)
+			st_passive.OnLeave = delegate(KFSMState to)
 			{
 				Events["TogglePort"].active = false;
 
@@ -682,7 +682,7 @@ namespace IR_ConnectionSystem.Module
 			fsm.AddState(st_passive);
 
 			st_approaching = new KFSMState("Approaching");
-			st_approaching.OnEnter = delegate (KFSMState from)
+			st_approaching.OnEnter = delegate(KFSMState from)
 			{
 				Events["TogglePort"].active = false;
 
@@ -691,7 +691,7 @@ namespace IR_ConnectionSystem.Module
 				otherPort.otherPort = this;
 				otherPort.dockedPartUId = part.flightID;
 
-				//				otherPort.fsm.RunEvent(otherPort.on_approach_passive);
+//				otherPort.fsm.RunEvent(otherPort.on_approach_passive);
 			};
 			st_approaching.OnFixedUpdate = delegate
 			{
@@ -709,13 +709,13 @@ namespace IR_ConnectionSystem.Module
 
 				DockAngle = ang.ToString();
 
-				if (distance.magnitude < captureDistance)
+				if(distance.magnitude < captureDistance)
 				{
 					bool angleok = ((ang > -5f) && (ang < 5f));
 
-					if (angleok)
+					if(angleok)
 					{
-						if (!inCaptureDistance)
+						if(!inCaptureDistance)
 							Events["Latch"].active = true;
 
 						inCaptureDistance = true;
@@ -724,41 +724,41 @@ namespace IR_ConnectionSystem.Module
 					}
 				}
 
-				if (inCaptureDistance)
+				if(inCaptureDistance)
 					Events["Latch"].active = false;
 
 				inCaptureDistance = false;
-
-				if (distance.magnitude < 1.5f * approachingDistance)
+				
+				if(distance.magnitude < 1.5f * approachingDistance)
 				{
 					float angle = Vector3.Angle(nodeTransform.forward, -otherPort.nodeTransform.forward);
 
-					if (angle <= 15f)
+					if(angle <= 15f)
 						return;
 				}
 
 				otherPort.fsm.RunEvent(otherPort.on_distance_passive);
 				fsm.RunEvent(on_distance);
 			};
-			st_approaching.OnLeave = delegate (KFSMState to)
+			st_approaching.OnLeave = delegate(KFSMState to)
 			{
 			};
 			fsm.AddState(st_approaching);
 
 			st_approaching_passive = new KFSMState("Approaching (passive)");
-			st_approaching_passive.OnEnter = delegate (KFSMState from)
+			st_approaching_passive.OnEnter = delegate(KFSMState from)
 			{
 			};
 			st_approaching_passive.OnFixedUpdate = delegate
 			{
 			};
-			st_approaching_passive.OnLeave = delegate (KFSMState to)
+			st_approaching_passive.OnLeave = delegate(KFSMState to)
 			{
 			};
 			fsm.AddState(st_approaching_passive);
 
 			st_latching = new KFSMState("Latching");
-			st_latching.OnEnter = delegate (KFSMState from)
+			st_latching.OnEnter = delegate(KFSMState from)
 			{
 				Events["Latch"].active = false;
 				Events["Release"].active = true;
@@ -772,7 +772,7 @@ namespace IR_ConnectionSystem.Module
 			};
 			st_latching.OnFixedUpdate = delegate
 			{
-				if (_rotStep > _transstep)
+				if(_rotStep > _transstep)
 				{
 					_rotStep -= _transstep;
 
@@ -781,14 +781,14 @@ namespace IR_ConnectionSystem.Module
 					Vector3 diff = otherPort.nodeTransform.position - nodeTransform.position;
 					diff = CaptureJoint.transform.InverseTransformDirection(diff);
 
-					if (diff.magnitude < 0.0005f)
+					if(diff.magnitude < 0.0005f)
 						CaptureJoint.targetPosition -= diff;
 					else
 						CaptureJoint.targetPosition -= diff.normalized * 0.0005f;
-					// FEHLER, etwas unschön, weil ich kein Slerp machen kann, weil ich mich vorher ausgerichtet habe... hmm... -> evtl. Basis rechnen, dann differenz davon und dann... dazwischen Slerpen?
+	// FEHLER, etwas unschön, weil ich kein Slerp machen kann, weil ich mich vorher ausgerichtet habe... hmm... -> evtl. Basis rechnen, dann differenz davon und dann... dazwischen Slerpen?
 
-					// FEHLER, hab's doch noch neu gemacht... mal sehen ob's so stimmt oder zumindest etwas besser passt
-					CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJointWoherIchKomme, _rotStep);
+// FEHLER, hab's doch noch neu gemacht... mal sehen ob's so stimmt oder zumindest etwas besser passt
+CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJointWoherIchKomme, _rotStep);
 				}
 				else
 				{
@@ -798,13 +798,13 @@ namespace IR_ConnectionSystem.Module
 					fsm.RunEvent(on_prelatched);
 				}
 			};
-			st_latching.OnLeave = delegate (KFSMState to)
+			st_latching.OnLeave = delegate(KFSMState to)
 			{
 			};
 			fsm.AddState(st_latching);
 
 			st_prelatched = new KFSMState("Pre Latched");
-			st_prelatched.OnEnter = delegate (KFSMState from)
+			st_prelatched.OnEnter = delegate(KFSMState from)
 			{
 				Events["Release"].active = true;
 
@@ -812,64 +812,64 @@ namespace IR_ConnectionSystem.Module
 			};
 			st_prelatched.OnFixedUpdate = delegate
 			{
-				if (--iPos < 0)
+				if(--iPos < 0)
 				{
 					fsm.RunEvent(on_latch);
 					otherPort.fsm.RunEvent(otherPort.on_latch_passive);
 				}
 			};
-			st_prelatched.OnLeave = delegate (KFSMState to)
+			st_prelatched.OnLeave = delegate(KFSMState to)
 			{
-				// FEHLER, evtl. noch relaxing machen, wenn gleiches Schiff?
+// FEHLER, evtl. noch relaxing machen, wenn gleiches Schiff?
 
-				/*
-								DockToVessel(otherPort);
+/*
+				DockToVessel(otherPort);
 
-								Destroy(CaptureJoint);
-								CaptureJoint = null;
-				*/
-				//		otherPort.fsm.RunEvent(otherPort.on_dock);
+				Destroy(CaptureJoint);
+				CaptureJoint = null;
+*/
+		//		otherPort.fsm.RunEvent(otherPort.on_dock);
 			};
 			fsm.AddState(st_prelatched);
-
+		
 			st_latched = new KFSMState("Latched");
-			st_latched.OnEnter = delegate (KFSMState from)
+			st_latched.OnEnter = delegate(KFSMState from)
 			{
 				Events["Release"].active = true;
 
 				Events["Dock"].active = true;
 				Events["Undock"].active = false;
 
-				//if(from == st_prelatched) // FEHLER, quickfix... das schöner machen mal -> wenn ich vom Docked komme, dann renne ich auch hier rein
-				{
-					JointDrive angularDrive = new JointDrive { maximumForce = PhysicsGlobals.JointForce, positionSpring = 60000f, positionDamper = 0f };
-					CaptureJoint.angularXDrive = CaptureJoint.angularYZDrive = CaptureJoint.slerpDrive = angularDrive;
+//if(from == st_prelatched) // FEHLER, quickfix... das schöner machen mal -> wenn ich vom Docked komme, dann renne ich auch hier rein
+{
+				JointDrive angularDrive = new JointDrive { maximumForce = PhysicsGlobals.JointForce, positionSpring = 60000f, positionDamper = 0f };
+				CaptureJoint.angularXDrive = CaptureJoint.angularYZDrive = CaptureJoint.slerpDrive = angularDrive;
 
-					JointDrive linearDrive = new JointDrive { maximumForce = PhysicsGlobals.JointForce, positionSpring = PhysicsGlobals.JointForce, positionDamper = 0f };
-					CaptureJoint.xDrive = CaptureJoint.yDrive = CaptureJoint.zDrive = linearDrive;
+				JointDrive linearDrive = new JointDrive { maximumForce = PhysicsGlobals.JointForce, positionSpring = PhysicsGlobals.JointForce, positionDamper = 0f };
+				CaptureJoint.xDrive = CaptureJoint.yDrive = CaptureJoint.zDrive = linearDrive;
 
-					//			otherPort.fsm.RunEvent(otherPort.on_latch_passive);
-				}
+	//			otherPort.fsm.RunEvent(otherPort.on_latch_passive);
+}
 			};
 			st_latched.OnFixedUpdate = delegate
 			{
 			};
-			st_latched.OnLeave = delegate (KFSMState to)
+			st_latched.OnLeave = delegate(KFSMState to)
 			{
 			};
 			fsm.AddState(st_latched);
 
 			st_latched_passive = new KFSMState("Latched (passive)");
-			st_latched_passive.OnEnter = delegate (KFSMState from)
+			st_latched_passive.OnEnter = delegate(KFSMState from)
 			{
 				Events["MakeActive"].guiActive = ((supportedModes & 2) != 0);
 			};
 			st_latched_passive.OnFixedUpdate = delegate
 			{
 			};
-			st_latched_passive.OnLeave = delegate (KFSMState to)
+			st_latched_passive.OnLeave = delegate(KFSMState to)
 			{
-				if (to == st_passive)
+				if(to == st_passive)
 				{
 					otherPort = null;
 					dockedPartUId = 0;
@@ -880,7 +880,7 @@ namespace IR_ConnectionSystem.Module
 			fsm.AddState(st_latched_passive);
 
 			st_docked = new KFSMState("Docked");
-			st_docked.OnEnter = delegate (KFSMState from)
+			st_docked.OnEnter = delegate(KFSMState from)
 			{
 				Events["Release"].active = false;
 
@@ -890,14 +890,14 @@ namespace IR_ConnectionSystem.Module
 			st_docked.OnFixedUpdate = delegate
 			{
 			};
-			st_docked.OnLeave = delegate (KFSMState to)
+			st_docked.OnLeave = delegate(KFSMState to)
 			{
 				Events["Undock"].active = false;
 			};
 			fsm.AddState(st_docked);
 
 			st_preattached = new KFSMState("Attached");
-			st_preattached.OnEnter = delegate (KFSMState from)
+			st_preattached.OnEnter = delegate(KFSMState from)
 			{
 				Events["Release"].active = false;
 
@@ -906,14 +906,14 @@ namespace IR_ConnectionSystem.Module
 			st_preattached.OnFixedUpdate = delegate
 			{
 			};
-			st_preattached.OnLeave = delegate (KFSMState to)
+			st_preattached.OnLeave = delegate(KFSMState to)
 			{
 				Events["Undock"].active = false;
 			};
 			fsm.AddState(st_preattached);
 
 			st_disabled = new KFSMState("Inactive");
-			st_disabled.OnEnter = delegate (KFSMState from)
+			st_disabled.OnEnter = delegate(KFSMState from)
 			{
 				Events["TogglePort"].guiName = "Activate Port";
 				Events["TogglePort"].active = true;
@@ -921,7 +921,7 @@ namespace IR_ConnectionSystem.Module
 			st_disabled.OnFixedUpdate = delegate
 			{
 			};
-			st_disabled.OnLeave = delegate (KFSMState to)
+			st_disabled.OnLeave = delegate(KFSMState to)
 			{
 			};
 			fsm.AddState(st_disabled);
@@ -1034,13 +1034,13 @@ namespace IR_ConnectionSystem.Module
 
 			float angle = 0f;
 
-			for (int i = 1; i < snapCount; i++)
+			for(int i = 1; i < snapCount; i++)
 			{
 				float ff = (360f / snapCount) * i;
 
 				Vector3 tv2 = transform.InverseTransformDirection(Quaternion.AngleAxis(ff, port.nodeTransform.forward) * portDockingOrientation);
 
-				if (Vector3.Angle(tv, tvref) > Vector3.Angle(tv2, tvref))
+				if(Vector3.Angle(tv, tvref) > Vector3.Angle(tv2, tvref))
 				{
 					tv = tv2;
 					angle = ff;
@@ -1054,14 +1054,14 @@ namespace IR_ConnectionSystem.Module
 
 
 			Vector3 diff = port.nodeTransform.position - nodeTransform.position;
-			//	Vector3 difflp = Vector3.ProjectOnPlane(diff, transform.forward);
+		//	Vector3 difflp = Vector3.ProjectOnPlane(diff, transform.forward);
 
 			position = -transform.InverseTransformDirection(diff);
 		}
 
 		private void BuildCaptureJoint(ModuleIRBM port)
 		{
-			// FEHLER, müsste doch schon gesetzt sein... aber gut...
+		// FEHLER, müsste doch schon gesetzt sein... aber gut...
 			otherPort = port;
 			dockedPartUId = otherPort.part.flightID;
 
@@ -1074,7 +1074,7 @@ namespace IR_ConnectionSystem.Module
 			joint.connectedBody = otherPort.part.Rigidbody;
 
 			joint.breakForce = joint.breakTorque = Mathf.Infinity;
-			// FEHLER FEHLER -> breakForce min von beiden und torque auch
+// FEHLER FEHLER -> breakForce min von beiden und torque auch
 
 			// we calculate with the "stack" force -> thus * 4f and not * 1.6f
 
@@ -1126,7 +1126,7 @@ namespace IR_ConnectionSystem.Module
 			// FEHLER, nur mal so 'ne Idee... weiss nicht ob das gut sit
 
 			vessel.ResetRBAnchor();
-			if (otherPort) otherPort.vessel.ResetRBAnchor();
+			if(otherPort) otherPort.vessel.ResetRBAnchor();
 		}
 
 		////////////////////////////////////////
@@ -1134,69 +1134,66 @@ namespace IR_ConnectionSystem.Module
 
 		public void FixedUpdate()
 		{
-			if (HighLogic.LoadedSceneIsFlight)
+			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if (vessel && !vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
-					if ((fsm != null) && fsm.Started)
-						fsm.FixedUpdateFSM();
+				if((fsm != null) && fsm.Started)
+					fsm.FixedUpdateFSM();
 
 				}
-				/*
-								if(vessel.packed && followOtherPort)
-								{
-									vessel.SetRotation(otherPort.part.transform.rotation * otherPortRelativeRotation, true);
-									vessel.SetPosition(otherPort.part.transform.position + otherPort.part.transform.rotation * otherPortRelativePosition, false);
-								//	vessel.IgnoreGForces(5);
-								}
-				*/
+/*
+				if(vessel.packed && followOtherPort)
+				{
+					vessel.SetRotation(otherPort.part.transform.rotation * otherPortRelativeRotation, true);
+					vessel.SetPosition(otherPort.part.transform.position + otherPort.part.transform.rotation * otherPortRelativePosition, false);
+				//	vessel.IgnoreGForces(5);
+				}
+*/
 			}
 		}
 
 		public void Update()
 		{
-			if (HighLogic.LoadedSceneIsFlight)
+			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if (vessel && !vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
-					if ((fsm != null) && fsm.Started)
-					{
-						fsm.UpdateFSM();
-						DockStatus = fsm.currentStateName;
-					}
+				if((fsm != null) && fsm.Started)
+				{
+					fsm.UpdateFSM();
+					DockStatus = fsm.currentStateName;
+				}
 
-					if (FlightGlobals.fetch.VesselTarget == (ITargetable)this)
-					{
-						evtSetAsTarget.active = false;
-						evtUnsetTarget.active = true;
+    				if(FlightGlobals.fetch.VesselTarget == (ITargetable)this)
+				{
+					evtSetAsTarget.active = false;
+					evtUnsetTarget.active = true;
 
-						if (FlightGlobals.ActiveVessel == vessel)
-							FlightGlobals.fetch.SetVesselTarget(null);
-						else if ((FlightGlobals.ActiveVessel.transform.position - nodeTransform.position).sqrMagnitude > 40000f)
-							FlightGlobals.fetch.SetVesselTarget(vessel);
-					}
-					else
-					{
-						evtSetAsTarget.active = true;
-						evtUnsetTarget.active = false;
-					}
-
+					if(FlightGlobals.ActiveVessel == vessel)
+						FlightGlobals.fetch.SetVesselTarget(null);
+					else if((FlightGlobals.ActiveVessel.transform.position - nodeTransform.position).sqrMagnitude > 40000f)
+						FlightGlobals.fetch.SetVesselTarget(vessel);
+				}
+				else
+				{
+					evtSetAsTarget.active = true;
+					evtUnsetTarget.active = false;
 				}
 			}
 		}
 
 		public void LateUpdate()
 		{
-			if (HighLogic.LoadedSceneIsFlight)
+			if(HighLogic.LoadedSceneIsFlight)
 			{
-				if (vessel && !vessel.packed)
+				if(vessel && !vessel.packed)
 				{
 
-					if ((fsm != null) && fsm.Started)
-						fsm.LateUpdateFSM();
-
+				if((fsm != null) && fsm.Started)
+					fsm.LateUpdateFSM();
 				}
 			}
 		}
@@ -1215,9 +1212,9 @@ namespace IR_ConnectionSystem.Module
 
 		public void Enable()
 		{
-			if ((supportedModes & 1) != 0)
+			if((supportedModes & 1) != 0)
 				fsm.RunEvent(on_setpassive);
-			else if ((supportedModes & 2) != 0)
+			else if((supportedModes & 2) != 0)
 				fsm.RunEvent(on_setactive);
 		}
 
@@ -1229,7 +1226,7 @@ namespace IR_ConnectionSystem.Module
 		[KSPEvent(guiActive = true, guiActiveUnfocused = true, guiName = "Deactivate Port")]
 		public void TogglePort()
 		{
-			if (fsm.CurrentState == st_disabled)
+			if(fsm.CurrentState == st_disabled)
 				Enable();
 			else
 				Disable();
@@ -1237,26 +1234,26 @@ namespace IR_ConnectionSystem.Module
 
 		public void SetActive()
 		{
-			if ((supportedModes & 2) != 0)
+			if((supportedModes & 2) != 0)
 				fsm.RunEvent(on_setactive);
 		}
 
 		public void SetPassive()
 		{
-			if ((supportedModes & 1) != 0)
+			if((supportedModes & 1) != 0)
 				fsm.RunEvent(on_setpassive);
 		}
 
 		[KSPEvent(guiActive = true, guiActiveUnfocused = true, guiName = "Mode")]
 		public void ToggleMode()
 		{
-			if (fsm.CurrentState == st_passive)
+			if(fsm.CurrentState == st_passive)
 				SetActive();
-			else if (fsm.CurrentState == st_active)
+			else if(fsm.CurrentState == st_active)
 				SetPassive();
 		}
 
-		// FEHLER, nicht so tolle Funktion
+// FEHLER, nicht so tolle Funktion
 		[KSPEvent(guiActive = false, guiActiveUnfocused = false, guiName = "Make Active")]
 		public void MakeActive()
 		{
@@ -1271,7 +1268,7 @@ namespace IR_ConnectionSystem.Module
 			otherPort.fsm.RunEvent(otherPort.on_latch_passive);
 		}
 
-		// das ist das pull-back und eine Drehung (gleichzeitig)
+	// das ist das pull-back und eine Drehung (gleichzeitig)
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Latch")]
 		public void Latch()
 		{
@@ -1287,7 +1284,7 @@ namespace IR_ConnectionSystem.Module
 			Events["Latch"].active = false;
 			Events["Dock"].active = false;
 
-			if (otherPort != null)
+			if(otherPort != null)
 				otherPort.fsm.RunEvent(otherPort.on_release_passive);
 
 			fsm.RunEvent(on_release);
@@ -1318,7 +1315,7 @@ namespace IR_ConnectionSystem.Module
 			DockingHelper.SaveCameraPosition(part);
 			DockingHelper.SuspendCameraSwitch(10);
 
-			if (otherPort.vessel == Vessel.GetDominantVessel(vessel, otherPort.vessel))
+			if(otherPort.vessel == Vessel.GetDominantVessel(vessel, otherPort.vessel))
 				DockingHelper.DockVessels(this, otherPort);
 			else
 				DockingHelper.DockVessels(otherPort, this);
@@ -1350,9 +1347,9 @@ namespace IR_ConnectionSystem.Module
 			otherPort.fsm.RunEvent(otherPort.on_undock_passive);
 			fsm.RunEvent(on_undock);
 
-			if (oldvessel == FlightGlobals.ActiveVessel)
+			if(oldvessel == FlightGlobals.ActiveVessel)
 			{
-				if (vessel[referenceTransformId] == null)
+				if(vessel[referenceTransformId] == null)
 					StartCoroutine(WaitAndSwitchFocus());
 			}
 		}
@@ -1376,7 +1373,7 @@ namespace IR_ConnectionSystem.Module
 			Events["DisableXFeed"].active = true;
 			bool fuelCrossFeed = part.fuelCrossFeed;
 			part.fuelCrossFeed = (crossfeed = true);
-			if (fuelCrossFeed != crossfeed)
+			if(fuelCrossFeed != crossfeed)
 				GameEvents.onPartCrossfeedStateChange.Fire(base.part);
 		}
 
@@ -1387,7 +1384,7 @@ namespace IR_ConnectionSystem.Module
 			Events["DisableXFeed"].active = false;
 			bool fuelCrossFeed = base.part.fuelCrossFeed;
 			base.part.fuelCrossFeed = (crossfeed = false);
-			if (fuelCrossFeed != crossfeed)
+			if(fuelCrossFeed != crossfeed)
 				GameEvents.onPartCrossfeedStateChange.Fire(base.part);
 		}
 
@@ -1429,7 +1426,7 @@ namespace IR_ConnectionSystem.Module
 		[KSPAction("#autoLOC_236032")]
 		public void ToggleXFeedAction(KSPActionParam param)
 		{
-			if (crossfeed)
+			if(crossfeed)
 				DisableXFeed();
 			else
 				EnableXFeed();
@@ -1563,22 +1560,22 @@ namespace IR_ConnectionSystem.Module
 
 		string IModuleInfo.GetInfo()
 		{
-			/*
-						StringBuilder sb = new StringBuilder();
-						sb.AppendFormat("Attach strength (catched): {0:F0}\n", catchedBreakForce);
-						sb.AppendFormat("Attach strength (latched): {0:F0}\n", latchedBreakForce);
+/*
+			StringBuilder sb = new StringBuilder();
+			sb.AppendFormat("Attach strength (catched): {0:F0}\n", catchedBreakForce);
+			sb.AppendFormat("Attach strength (latched): {0:F0}\n", latchedBreakForce);
 
-						if(electricChargeRequiredLatching != 0f)
-						{
-							sb.Append("\n\n");
-							sb.Append("<b><color=orange>Requires:</color></b>\n");
+			if(electricChargeRequiredLatching != 0f)
+			{
+				sb.Append("\n\n");
+				sb.Append("<b><color=orange>Requires:</color></b>\n");
+				
+				if(electricChargeRequiredLatching != 0f)
+					sb.AppendFormat("- <b>Electric Charge:</b> {0:F0}\n  (for latching)", electricChargeRequiredLatching);
+			}
 
-							if(electricChargeRequiredLatching != 0f)
-								sb.AppendFormat("- <b>Electric Charge:</b> {0:F0}\n  (for latching)", electricChargeRequiredLatching);
-						}
-
-						return sb.ToString();*/
-			return ""; // FEHLER, fehlt
+			return sb.ToString();*/
+return ""; // FEHLER, fehlt
 		}
 
 		Callback<Rect> IModuleInfo.GetDrawModulePanelCallback()

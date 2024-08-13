@@ -1156,44 +1156,47 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 
 		public void Update()
 		{
-			if(HighLogic.LoadedSceneIsFlight)
+			if (HighLogic.LoadedSceneIsFlight)
 			{
-				if(vessel && !vessel.packed)
+				if (vessel && !vessel.packed)
 				{
 
-				if((fsm != null) && fsm.Started)
-				{
-					fsm.UpdateFSM();
-					DockStatus = fsm.currentStateName;
-				}
+					if ((fsm != null) && fsm.Started)
+					{
+						fsm.UpdateFSM();
+						DockStatus = fsm.currentStateName;
+					}
 
-    				if(FlightGlobals.fetch.VesselTarget == (ITargetable)this)
-				{
-					evtSetAsTarget.active = false;
-					evtUnsetTarget.active = true;
+					if (FlightGlobals.fetch.VesselTarget == (ITargetable)this)
+					{
+						evtSetAsTarget.active = false;
+						evtUnsetTarget.active = true;
 
-					if(FlightGlobals.ActiveVessel == vessel)
-						FlightGlobals.fetch.SetVesselTarget(null);
-					else if((FlightGlobals.ActiveVessel.transform.position - nodeTransform.position).sqrMagnitude > 40000f)
-						FlightGlobals.fetch.SetVesselTarget(vessel);
-				}
-				else
-				{
-					evtSetAsTarget.active = true;
-					evtUnsetTarget.active = false;
+						if (FlightGlobals.ActiveVessel == vessel)
+							FlightGlobals.fetch.SetVesselTarget(null);
+						else if ((FlightGlobals.ActiveVessel.transform.position - nodeTransform.position).sqrMagnitude > 40000f)
+							FlightGlobals.fetch.SetVesselTarget(vessel);
+					}
+					else
+					{
+						evtSetAsTarget.active = true;
+						evtUnsetTarget.active = false;
+					}
+
 				}
 			}
 		}
 
 		public void LateUpdate()
 		{
-			if(HighLogic.LoadedSceneIsFlight)
+			if (HighLogic.LoadedSceneIsFlight)
 			{
-				if(vessel && !vessel.packed)
+				if (vessel && !vessel.packed)
 				{
 
-				if((fsm != null) && fsm.Started)
-					fsm.LateUpdateFSM();
+					if ((fsm != null) && fsm.Started)
+						fsm.LateUpdateFSM();
+
 				}
 			}
 		}

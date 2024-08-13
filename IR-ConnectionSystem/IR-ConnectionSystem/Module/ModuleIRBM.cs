@@ -12,7 +12,7 @@ using DockingFunctions;
 
 namespace IR_ConnectionSystem.Module
 {
-	public class ModuleIRBM : PartModule, IDockable, IModuleInfo
+	public class ModuleIRBM : PartModule, IDockable, ITargetable, IModuleInfo
 	{
 		// Settings
 
@@ -68,6 +68,9 @@ namespace IR_ConnectionSystem.Module
 		public bool crossfeed = true;
 
 		// Docking and Status
+
+		public BaseEvent evtSetAsTarget;
+		public BaseEvent evtUnsetTarget;
 
 		public Transform nodeTransform;
 		public Transform controlTransform;
@@ -241,6 +244,9 @@ namespace IR_ConnectionSystem.Module
 		public override void OnStart(StartState state)
 		{
 			base.OnStart(state);
+
+			evtSetAsTarget = base.Events["SetAsTarget"];
+			evtUnsetTarget = base.Events["UnsetTarget"];
 
 			if(state == StartState.Editor)
 				return;
@@ -1161,6 +1167,20 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 					DockStatus = fsm.currentStateName;
 				}
 
+    				if(FlightGlobals.fetch.VesselTarget == (ITargetable)this)
+				{
+					evtSetAsTarget.active = false;
+					evtUnsetTarget.active = true;
+
+					if(FlightGlobals.ActiveVessel == vessel)
+						FlightGlobals.fetch.SetVesselTarget(null);
+					else if((FlightGlobals.ActiveVessel.transform.position - nodeTransform.position).sqrMagnitude > 40000f)
+						FlightGlobals.fetch.SetVesselTarget(vessel);
+				}
+				else
+				{
+					evtSetAsTarget.active = true;
+					evtUnsetTarget.active = false;
 				}
 			}
 		}
@@ -1413,6 +1433,28 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		}
 
 		////////////////////////////////////////
+		// Reference / Target
+
+		[KSPEvent(guiActive = true, guiName = "#autoLOC_6001447")]
+		public void MakeReferenceTransform()
+		{
+			part.SetReferenceTransform(controlTransform);
+			vessel.SetReferenceTransform(part);
+		}
+
+		[KSPEvent(guiActive = false, guiActiveUnfocused = true, externalToEVAOnly = false, unfocusedRange = 200f, guiName = "#autoLOC_6001448")]
+		public void SetAsTarget()
+		{
+			FlightGlobals.fetch.SetVesselTarget(this);
+		}
+
+		[KSPEvent(guiActive = false, guiActiveUnfocused = true, externalToEVAOnly = false, unfocusedRange = 200f, guiName = "#autoLOC_6001449")]
+		public void UnsetTarget()
+		{
+			FlightGlobals.fetch.SetVesselTarget(null);
+		}
+
+		////////////////////////////////////////
 		// IDockable
 
 		private DockInfo dockInfo;
@@ -1448,6 +1490,64 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		public IDockable GetOtherDockable()
 		{
 			return IsDocked() ? (IDockable)otherPort : null;
+		}
+
+		////////////////////////////////////////
+		// ITargetable
+
+		public Transform GetTransform()
+		{
+			return nodeTransform;
+		}
+
+		public Vector3 GetObtVelocity()
+		{
+			return base.vessel.obt_velocity;
+		}
+
+		public Vector3 GetSrfVelocity()
+		{
+			return base.vessel.srf_velocity;
+		}
+
+		public Vector3 GetFwdVector()
+		{
+			return nodeTransform.forward;
+		}
+
+		public Vessel GetVessel()
+		{
+			return vessel;
+		}
+
+		public string GetName()
+		{
+			return "name fehlt noch"; // FEHLER, einbauen
+		}
+
+		public string GetDisplayName()
+		{
+			return GetName();
+		}
+
+		public Orbit GetOrbit()
+		{
+			return vessel.orbit;
+		}
+
+		public OrbitDriver GetOrbitDriver()
+		{
+			return vessel.orbitDriver;
+		}
+
+		public VesselTargetModes GetTargetingMode()
+		{
+			return VesselTargetModes.DirectionVelocityAndOrientation;
+		}
+
+		public bool GetActiveTargetable()
+		{
+			return false;
 		}
 
 		////////////////////////////////////////

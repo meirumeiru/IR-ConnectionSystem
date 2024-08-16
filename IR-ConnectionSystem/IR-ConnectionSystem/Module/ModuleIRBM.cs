@@ -495,7 +495,7 @@ namespace IR_ConnectionSystem.Module
 			if((DockStatus == "Approaching")
 			|| (DockStatus == "Latching")		// not required
 			|| (DockStatus == "Pre Latched")	// not required
-			|| (DockStatus == "Latched"))
+			|| (DockStatus == "Latched")
    			|| (DockStatus == "Released"))
 			{
 // FEHLER

@@ -65,6 +65,9 @@ namespace IR_ConnectionSystem.Module
 
 
 		[KSPField(isPersistant = true)]
+		public bool autoCapture = false;
+
+		[KSPField(isPersistant = true)]
 		public bool crossfeed = true;
 
 		// Docking and Status
@@ -300,6 +303,9 @@ namespace IR_ConnectionSystem.Module
 			yield return null;
 
 			Events["TogglePort"].active = false;
+
+			Events["AutoCapture"].active = false;
+			Events["AutoCapture"].guiName = autoCapture ? "Capturing: Auto" : "Capturing: Manual";
 
 			Events["ToggleMode"].active = false;
 
@@ -593,6 +599,9 @@ namespace IR_ConnectionSystem.Module
 
 				Events["ToggleMode"].guiName = "Mode: Active";
 				Events["ToggleMode"].active = true;
+
+    				Events["AutoCapture"].guiName = autoCapture ? "Capturing: Auto" : "Capturing: Manual";
+				Events["AutoCapture"].active = true;
 			};
 			st_active.OnFixedUpdate = delegate
 			{
@@ -686,6 +695,9 @@ namespace IR_ConnectionSystem.Module
 			{
 				Events["TogglePort"].active = false;
 
+				Events["AutoCapture"].guiName = autoCapture ? "Capturing: Auto" : "Capturing: Manual";
+				Events["AutoCapture"].active = true;
+
 				inCaptureDistance = false;
 
 				otherPort.otherPort = this;
@@ -715,8 +727,16 @@ namespace IR_ConnectionSystem.Module
 
 					if(angleok)
 					{
+						if(autoCapture)
+						{
+							fsm.RunEvent(on_capturing);
+							otherPort.fsm.RunEvent(otherPort.on_capture_passive);
+
+							return;
+						}
+
 						if(!inCaptureDistance)
-							Events["Latch"].active = true;
+							Events["Capture"].active = true;
 
 						inCaptureDistance = true;
 
@@ -762,6 +782,8 @@ namespace IR_ConnectionSystem.Module
 			{
 				Events["Latch"].active = false;
 				Events["Release"].active = true;
+
+    				Events["AutoCapture"].active = false;
 
 				BuildCaptureJoint(otherPort);
 				BuildCaptureJoint2();
@@ -917,6 +939,8 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			{
 				Events["TogglePort"].guiName = "Activate Port";
 				Events["TogglePort"].active = true;
+
+    				Events["AutoCapture"].active = false;
 			};
 			st_disabled.OnFixedUpdate = delegate
 			{
@@ -1234,6 +1258,14 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			else
 				Disable();
 		}
+
+  		[KSPEvent(guiActive = true, guiActiveUnfocused = true, guiName = "Capturing: Manual")]
+		public void AutoCapture()
+		{
+			autoCapture = !autoCapture;
+			Events["AutoCapture"].guiName = autoCapture ? "Capturing: Auto" : "Capturing: Manual";
+		}
+	// FEHLER, so toggle-Müll mal sauber definieren und überall gleich machen -> crossfeed ist zwar auch super doof definiert (im Stock)
 
 		public void SetActive()
 		{

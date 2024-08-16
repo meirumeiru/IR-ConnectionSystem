@@ -92,6 +92,8 @@ namespace IR_ConnectionSystem.Module
 		public KFSMState st_latched;		// docked
 		public KFSMState st_latched_passive;
 
+  		public KFSMState st_released;
+
 		public KFSMState st_docked;			// docked or docked_to_same_vessel
 		public KFSMState st_preattached;
 
@@ -311,6 +313,7 @@ namespace IR_ConnectionSystem.Module
 
 			Events["Latch"].active = false;
 			Events["Release"].active = false;
+   			Events["Restore"].active = false;
 
 			Events["Dock"].active = false;
 			Events["Undock"].active = false;
@@ -493,6 +496,7 @@ namespace IR_ConnectionSystem.Module
 			|| (DockStatus == "Latching")		// not required
 			|| (DockStatus == "Pre Latched")	// not required
 			|| (DockStatus == "Latched"))
+   			|| (DockStatus == "Released"))
 			{
 // FEHLER
 //nope, ich muss alles bauen von dem Teil da... gut, auf den fsm von ihm kann ich zwar warten... das stimmt wohl
@@ -904,6 +908,35 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			};
 			fsm.AddState(st_latched_passive);
 
+   			st_released = new KFSMState("Released");
+			st_released.OnEnter = delegate(KFSMState from)
+			{
+				DestroyCaptureJoint();
+
+				Events["Release"].active = false;
+				Events["Latch"].active = false;
+				Events["Dock"].active = false;
+
+				Events["Restore"].active = true;
+
+//				if(otherPort != null)
+//					otherPort.fsm.RunEvent(otherPort.on_release_passive);
+			};
+			st_released.OnFixedUpdate = delegate
+			{
+				float distance = (otherPort.nodeTransform.position - nodeTransform.position).magnitude;
+
+				DockDistance = distance.ToString();
+
+				if(distance > 1.1f * approachingDistance)
+					fsm.RunEvent(on_distance);
+			};
+			st_released.OnLeave = delegate(KFSMState to)
+			{
+				Events["Restore"].active = false;
+			};
+			fsm.AddState(st_released);
+
 			st_docked = new KFSMState("Docked");
 			st_docked.OnEnter = delegate(KFSMState from)
 			{
@@ -978,7 +1011,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_distance = new KFSMEvent("Distancing");
 			on_distance.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_distance.GoToStateOnEvent = st_active;
-			fsm.AddEvent(on_distance, st_approaching, st_docked, st_preattached);
+			fsm.AddEvent(on_distance, st_approaching, st_docked, st_preattached, st_released);
 
 			on_distance_passive = new KFSMEvent("Distanced");
 			on_distance_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
@@ -1005,10 +1038,9 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_latch_passive.GoToStateOnEvent = st_latched_passive;
 			fsm.AddEvent(on_latch_passive, st_approaching_passive, st_latched);
 
-
-			on_release = new KFSMEvent("Release");
+   			on_release = new KFSMEvent("Released");
 			on_release.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
-			on_release.GoToStateOnEvent = st_active;
+			on_release.GoToStateOnEvent = st_released;
 			fsm.AddEvent(on_release, st_latched);
 
 			on_release_passive = new KFSMEvent("Release (passive)");
@@ -1047,7 +1079,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_construction = new KFSMEvent("Construction");
 			on_construction.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_construction.GoToStateOnEvent = st_disabled;
-			fsm.AddEvent(on_construction, st_active, st_passive, st_approaching, st_approaching_passive, st_latching, st_prelatched, st_latched, st_latched_passive, st_docked, st_preattached);
+			fsm.AddEvent(on_construction, st_active, st_passive, st_approaching, st_approaching_passive, st_latching, st_prelatched, st_latched, st_latched_passive, st_released, st_docked, st_preattached);
 		}
 
 		// calculate position and orientation for st_capture
@@ -1325,6 +1357,12 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 				otherPort.fsm.RunEvent(otherPort.on_release_passive);
 
 			fsm.RunEvent(on_release);
+		}
+
+  		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Restore")]
+		public void Restore()
+		{
+			fsm.RunEvent(on_distance);
 		}
 
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Dock")]

@@ -1525,7 +1525,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 
 		public string GetName()
 		{
-			return "name fehlt noch"; // FEHLER, einbauen
+			return "Common Berthing Mechanism"; // FEHLER, einbauen
 		}
 
 		public string GetDisplayName()

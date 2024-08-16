@@ -65,6 +65,9 @@ namespace IR_ConnectionSystem.Module
 
 
 		[KSPField(isPersistant = true)]
+		public bool autoLatch = false;
+
+		[KSPField(isPersistant = true)]
 		public bool crossfeed = true;
 
 		// Docking and Status
@@ -300,6 +303,9 @@ namespace IR_ConnectionSystem.Module
 			yield return null;
 
 			Events["TogglePort"].active = false;
+
+			Events["AutoLatch"].active = false;
+			Events["AutoLatch"].guiName = autoLatch ? "Latching: Auto" : "Latching: Manual";
 
 			Events["ToggleMode"].active = false;
 
@@ -593,6 +599,9 @@ namespace IR_ConnectionSystem.Module
 
 				Events["ToggleMode"].guiName = "Mode: Active";
 				Events["ToggleMode"].active = true;
+    
+				Events["AutoLatch"].guiName = autoLatch ? "Latching: Auto" : "Latching: Manual";
+				Events["AutoLatch"].active = true;
 			};
 			st_active.OnFixedUpdate = delegate
 			{
@@ -686,6 +695,9 @@ namespace IR_ConnectionSystem.Module
 			{
 				Events["TogglePort"].active = false;
 
+				Events["AutoLatch"].guiName = autoLatch ? "Latching: Auto" : "Latching: Manual";
+				Events["AutoLatch"].active = true;
+
 				inCaptureDistance = false;
 
 				otherPort.otherPort = this;
@@ -715,6 +727,14 @@ namespace IR_ConnectionSystem.Module
 
 					if(angleok)
 					{
+     						if(autoLatch)
+						{
+							fsm.RunEvent(on_latching);
+							otherPort.fsm.RunEvent(otherPort.on_latch_passive);
+
+							return;
+						}
+      
 						if(!inCaptureDistance)
 							Events["Latch"].active = true;
 
@@ -760,6 +780,8 @@ namespace IR_ConnectionSystem.Module
 			st_latching = new KFSMState("Latching");
 			st_latching.OnEnter = delegate(KFSMState from)
 			{
+				Events["AutoLatch"].active = false;
+   
 				Events["Latch"].active = false;
 				Events["Release"].active = true;
 
@@ -917,6 +939,8 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			{
 				Events["TogglePort"].guiName = "Activate Port";
 				Events["TogglePort"].active = true;
+
+    				Events["AutoLatch"].active = false;
 			};
 			st_disabled.OnFixedUpdate = delegate
 			{
@@ -1233,6 +1257,13 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 				Enable();
 			else
 				Disable();
+		}
+
+  		[KSPEvent(guiActive = true, guiActiveUnfocused = true, guiName = "Latching: Manual")]
+		public void AutoLatch()
+		{
+			autoLatch = !autoLatch;
+			Events["AutoLatch"].guiName = autoLatch ? "Latching: Auto" : "Latching: Manual";
 		}
 
 		public void SetActive()

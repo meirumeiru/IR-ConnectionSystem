@@ -678,6 +678,9 @@ namespace IR_ConnectionSystem.Module
 
 				Events["ToggleMode"].guiName = "Mode: Passive";
 				Events["ToggleMode"].active = true;
+
+    				Events["AutoLatch"].guiName = autoLatch ? "Latching: Auto" : "Latching: Manual";
+				Events["AutoLatch"].active = false;
 			};
 			st_passive.OnFixedUpdate = delegate
 			{

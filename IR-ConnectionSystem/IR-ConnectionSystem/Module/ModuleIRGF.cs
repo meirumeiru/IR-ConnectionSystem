@@ -631,7 +631,7 @@ namespace IR_ConnectionSystem.Module
 
 		public string GetName()
 		{
-			return "name fehlt noch"; // FEHLER, einbauen
+			return "Grapple Fixture"; // FEHLER, einbauen
 		}
 
 		public string GetDisplayName()

@@ -83,7 +83,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
     <Compile Include="Effects\SoundSource.cs" />
     <Compile Include="Module\ModuleIRAttachment.cs" />
     <Compile Include="Module\ModuleIRBM.cs" />

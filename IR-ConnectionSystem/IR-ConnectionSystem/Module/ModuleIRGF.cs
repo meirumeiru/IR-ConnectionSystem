@@ -1,20 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections;
-using System.Text;
+using System.Collections.Generic;
 
-using KSP.IO;
 using UnityEngine;
 
 using IR_ConnectionSystem.Utility;
 using DockingFunctions;
 
+
 namespace IR_ConnectionSystem.Module
 {
-	// FEHLER, Crossfeed noch einrichten... und halt umbauen auf FSM? ... ja, zum Spass... shit ey
-
-	// FEHLER, wir arbeiten bei den Events nie mit "OnCheckCondition" sondern lösen alle manuell aus... kann man sich fragen, ob das gut ist, aber so lange der Event nur von einem Zustand her kommen kann, spielt das wie keine Rolle
-
 	public class ModuleIRGF : PartModule, IDockable, ITargetable, IModuleInfo
 	{
 		// Settings
@@ -26,20 +21,17 @@ namespace IR_ConnectionSystem.Module
 		public string controlTransformName = "";
 
 		[KSPField(isPersistant = false), SerializeField]
-		public Vector3 dockingOrientation = Vector3.zero; // defines the direction of the docking port (when docked at a 0° angle, these local vectors of two ports point into the same direction)
+		public Vector3 dockingOrientation = Vector3.up; // defines the direction of the docking port (when docked at a 0° angle, these local vectors of two ports point into the same direction)
 
 		[KSPField(isPersistant = false), SerializeField]
 		public int snapCount = 1;
 
 
 		[KSPField(isPersistant = false)]
-		public bool gendered = true;
-
-		[KSPField(isPersistant = false)]
-		public bool genderFemale = false;
-
-		[KSPField(isPersistant = false)]
 		public string nodeType = "GF";
+
+		public HashSet<string> nodeTypesAccepted = null;
+
 
 		[KSPField(isPersistant = false)]
 		public float breakingForce = 10f;
@@ -47,12 +39,16 @@ namespace IR_ConnectionSystem.Module
 		[KSPField(isPersistant = false)]
 		public float breakingTorque = 10f;
 
-		[KSPField(isPersistant = false)]
-		public string nodeName = "";				// FEHLER, mal sehen wozu wir den dann nutzen könnten
 
+		[KSPField(isPersistant = false), SerializeField]
+		public bool canCrossfeed = true;
 
 		[KSPField(isPersistant = true)]
 		public bool crossfeed = false;
+
+
+		[KSPField(isPersistant = false)]
+		public string nodeName = "";	// FEHLER, -> wir brauchen einen Namen
 
 		// Docking and Status
 
@@ -112,7 +108,9 @@ namespace IR_ConnectionSystem.Module
 
 		public override void OnAwake()
 		{
-			DebugInit();
+#if DEBUG
+	//		DebugInit();
+#endif
 
 			part.dockingPorts.AddUnique(this);
 		}
@@ -120,6 +118,17 @@ namespace IR_ConnectionSystem.Module
 		public override void OnLoad(ConfigNode node)
 		{
 			base.OnLoad(node);
+
+			nodeTypesAccepted = new HashSet<string>();
+
+			if(node.HasValue("nodeTypesAccepted"))
+			{
+				string[] values = node.GetValue("nodeTypesAccepted").Split(new char[2] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+				foreach(string s in values)
+					nodeTypesAccepted.Add(s);
+			}
+			else
+				nodeTypesAccepted.Add("LEE");
 
 			if(node.HasValue("state"))
 				DockStatus = node.GetValue("state");
@@ -134,8 +143,6 @@ namespace IR_ConnectionSystem.Module
 				vesselInfo = new DockedVesselInfo();
 				vesselInfo.Load(node.GetNode("DOCKEDVESSEL"));
 			}
-
-			part.fuelCrossFeed = crossfeed;
 		}
 
 		public override void OnSave(ConfigNode node)
@@ -179,11 +186,28 @@ namespace IR_ConnectionSystem.Module
 
 			StartCoroutine(WaitAndInitialize(st));
 
-			StartCoroutine(WaitAndInitializeDockingNodeFix());
+	//		StartCoroutine(WaitAndDisableDockingNode());
 		}
 
-		// FEHLER, ist 'n Quickfix, solange der blöde Port noch drüber hängt im Part...
-		public IEnumerator WaitAndInitializeDockingNodeFix()
+		public IEnumerator WaitAndInitialize(StartState st)
+		{
+			yield return null;
+
+			Events["TogglePort"].active = false;
+
+			if(!canCrossfeed) crossfeed = false;
+
+			part.fuelCrossFeed = crossfeed;
+
+			Events["EnableXFeed"].active = !crossfeed;
+			Events["DisableXFeed"].active = crossfeed;
+
+			SetupFSM();
+
+			fsm.StartFSM(DockStatus);
+		}
+	/*
+		public IEnumerator WaitAndDisableDockingNode()
 		{
 			ModuleDockingNode DockingNode = part.FindModuleImplementing<ModuleDockingNode>();
 
@@ -195,21 +219,7 @@ namespace IR_ConnectionSystem.Module
 				DockingNode.fsm.RunEvent(DockingNode.on_disable);
 			}
 		}
-
-		public IEnumerator WaitAndInitialize(StartState st)
-		{
-			yield return null;
-
-			Events["TogglePort"].active = false;
-
-			Events["EnableXFeed"].active = !crossfeed;
-			Events["DisableXFeed"].active = crossfeed;
-
-			SetupFSM();
-
-			fsm.StartFSM(DockStatus);
-		}
-
+	*/
 		public void OnDestroy()
 		{
 			GameEvents.OnEVAConstructionModePartDetached.Remove(OnEVAConstructionModePartDetached);
@@ -398,10 +408,8 @@ namespace IR_ConnectionSystem.Module
 			{
 				if(vessel && !vessel.packed)
 				{
-
-				if((fsm != null) && fsm.Started)
-					fsm.FixedUpdateFSM();
-
+					if((fsm != null) && fsm.Started)
+						fsm.FixedUpdateFSM();
 				}
 			}
 		}
@@ -412,29 +420,27 @@ namespace IR_ConnectionSystem.Module
 			{
 				if(vessel && !vessel.packed)
 				{
+					if((fsm != null) && fsm.Started)
+					{
+						fsm.UpdateFSM();
+						DockStatus = fsm.currentStateName;
+					}
 
-				if((fsm != null) && fsm.Started)
-				{
-					fsm.UpdateFSM();
-					DockStatus = fsm.currentStateName;
-				}
+					if(FlightGlobals.fetch.VesselTarget == (ITargetable)this)
+					{
+						evtSetAsTarget.active = false;
+						evtUnsetTarget.active = true;
 
-				if(FlightGlobals.fetch.VesselTarget == (ITargetable)this)
-				{
-					evtSetAsTarget.active = false;
-					evtUnsetTarget.active = true;
-
-					if(FlightGlobals.ActiveVessel == vessel)
-						FlightGlobals.fetch.SetVesselTarget(null);
-					else if((FlightGlobals.ActiveVessel.transform.position - nodeTransform.position).sqrMagnitude > 40000f)
-						FlightGlobals.fetch.SetVesselTarget(vessel);
-				}
-				else
-				{
-					evtSetAsTarget.active = true;
-					evtUnsetTarget.active = false;
-				}
-			
+						if(FlightGlobals.ActiveVessel == vessel)
+							FlightGlobals.fetch.SetVesselTarget(null);
+						else if((FlightGlobals.ActiveVessel.transform.position - nodeTransform.position).sqrMagnitude > 40000f)
+							FlightGlobals.fetch.SetVesselTarget(vessel);
+					}
+					else
+					{
+						evtSetAsTarget.active = true;
+						evtUnsetTarget.active = false;
+					}
 				}
 			}
 		}
@@ -445,10 +451,8 @@ namespace IR_ConnectionSystem.Module
 			{
 				if(vessel && !vessel.packed)
 				{
-
-				if((fsm != null) && fsm.Started)
-					fsm.LateUpdateFSM();
-
+					if((fsm != null) && fsm.Started)
+						fsm.LateUpdateFSM();
 				}
 			}
 		}
@@ -456,7 +460,6 @@ namespace IR_ConnectionSystem.Module
 		////////////////////////////////////////
 		// Context Menu
 
-// FEHLER, später total ausblenden, das brauch ich nur für Debugging im Moment
 		[KSPField(guiName = "GF status", isPersistant = false, guiActive = true, guiActiveUnfocused = true, unfocusedRange = 20)]
 		public string DockStatus = "Ready";
 
@@ -493,7 +496,7 @@ namespace IR_ConnectionSystem.Module
 			bool fuelCrossFeed = part.fuelCrossFeed;
 			part.fuelCrossFeed = (crossfeed = true);
 			if(fuelCrossFeed != crossfeed)
-				GameEvents.onPartCrossfeedStateChange.Fire(base.part);
+				GameEvents.onPartCrossfeedStateChange.Fire(part);
 		}
 
 		[KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "#autoLOC_236030")]
@@ -501,10 +504,10 @@ namespace IR_ConnectionSystem.Module
 		{
 			Events["EnableXFeed"].active = true;
 			Events["DisableXFeed"].active = false;
-			bool fuelCrossFeed = base.part.fuelCrossFeed;
-			base.part.fuelCrossFeed = (crossfeed = false);
+			bool fuelCrossFeed = part.fuelCrossFeed;
+			part.fuelCrossFeed = (crossfeed = false);
 			if(fuelCrossFeed != crossfeed)
-				GameEvents.onPartCrossfeedStateChange.Fire(base.part);
+				GameEvents.onPartCrossfeedStateChange.Fire(part);
 		}
 
 		////////////////////////////////////////
@@ -586,9 +589,13 @@ namespace IR_ConnectionSystem.Module
 		public void SetDockInfo(DockInfo _dockInfo)
 		{
 			dockInfo = _dockInfo;
-			vesselInfo =
-				(dockInfo == null) ? null :
-				((dockInfo.part == (IDockable)this) ? dockInfo.vesselInfo : dockInfo.targetVesselInfo);
+
+			if(dockInfo == null)
+				vesselInfo = null;
+			else if(dockInfo.part == (IDockable)this)
+				vesselInfo = dockInfo.vesselInfo;
+			else
+				vesselInfo = dockInfo.targetVesselInfo;
 		}
 
 		public bool IsDocked()
@@ -685,6 +692,8 @@ namespace IR_ConnectionSystem.Module
 		////////////////////////////////////////
 		// Debug
 
+#if DEBUG
+	/*
 		private MultiLineDrawer ld;
 
 		private String[] astrDebug;
@@ -723,5 +732,9 @@ namespace IR_ConnectionSystem.Module
 
 		private void DrawAxis(int idx, Transform p_transform, Vector3 p_vector, bool p_relative)
 		{ DrawAxis(idx, p_transform, p_vector, p_relative, Vector3.zero); }
+	
+	 */
+#endif
+
 	}
 }

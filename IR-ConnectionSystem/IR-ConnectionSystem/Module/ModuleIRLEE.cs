@@ -1,29 +1,15 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
-using KSP.IO;
 using UnityEngine;
 
 using IR_ConnectionSystem.Utility;
 using DockingFunctions;
 
+
 namespace IR_ConnectionSystem.Module
 {
-	// FEHLER, Crossfeed noch einrichten... und halt umbauen auf FSM? ... ja, zum Spass... shit ey
-
-	// FEHLER, wir arbeiten bei den Events nie mit "OnCheckCondition" sondern lösen alle manuell aus... kann man sich fragen, ob das gut ist, aber so lange der Event nur von einem Zustand her kommen kann, spielt das wie keine Rolle
-
-// FEHLER, -> general Rule: verbinden oder ähnliche Funktionen -> aktiv zuerst, dann passiv... trennen -> passiv zuerst, dann aktiv -> Idee: passiv ist nur dann "verbunden" oder "in Kontakt", wenn der aktive das auch ist
-
-	/*
-	 * captured = first contact, centering is running (no orientation)
-	 * latched  = centering has been done, weak connection (not latched in the way we would call it in reality)
-	 * docked   = latched, docked or docked_to_same_vessel (it may not be docked in the sense of KSP)
-	*/
-
 	public class ModuleIRLEE : PartModule, IDockable, IModuleInfo
 	{
 		// Settings
@@ -38,7 +24,7 @@ namespace IR_ConnectionSystem.Module
 		public string controlTransformName = "";
 
 		[KSPField(isPersistant = false), SerializeField]
-		public Vector3 dockingOrientation = Vector3.zero; // defines the direction of the docking port (when docked at a 0° angle, these local vectors of two ports point into the same direction)
+		public Vector3 dockingOrientation = Vector3.up; // defines the direction of the docking port (when docked at a 0° angle, these local vectors of two ports point into the same direction)
 
 		[KSPField(isPersistant = false), SerializeField]
 		public int snapCount = 1;
@@ -51,33 +37,47 @@ namespace IR_ConnectionSystem.Module
 		public float approachingDistance = 0.3f;
 
 		[KSPField(isPersistant = false), SerializeField]
+		public float approachingAngle = 15f;
+
+		[KSPField(isPersistant = false), SerializeField]
 		public float captureDistance = 0.06f;
 
+		[KSPField(isPersistant = true)]
+		public bool autoCapture = false;
+
 
 		[KSPField(isPersistant = false)]
-		public bool gendered = true;
+		public string nodeType = "LEE";
 
-		[KSPField(isPersistant = false)]
-		public bool genderFemale = false;
+		public HashSet<string> nodeTypesAccepted = null;
 
-		[KSPField(isPersistant = false)]
-		public string nodeType = "GF";
 
 		[KSPField(isPersistant = false)]
 		public float breakingForce = 10f;
 
 		[KSPField(isPersistant = false)]
 		public float breakingTorque = 10f;
+// FEHLER, hier mehrere Werte -> captured, latched unterscheiden
 
 		[KSPField(isPersistant = false)]
-		public string nodeName = "";				// FEHLER, mal sehen wozu wir den dann nutzen könnten
+		public float capturingSpeedTranslation = 0.025f; // distance per second
+
+		[KSPField(isPersistant = false)]
+		public float latchingSpeedRotation = 0.1f; // degrees per second
+
+		[KSPField(isPersistant = false)]
+		public float latchingSpeedTranslation = 0.025f; // distance per second
 
 
-		[KSPField(isPersistant = true)]
-		public bool autoCapture = false;
+		[KSPField(isPersistant = false), SerializeField]
+		public bool canCrossfeed = true;
 
 		[KSPField(isPersistant = true)]
 		public bool crossfeed = true;
+
+
+		[KSPField(isPersistant = false)]
+		public string nodeName = "";				// FEHLER, -> wir brauchen einen Namen
 
 		// Docking and Status
 
@@ -126,9 +126,7 @@ namespace IR_ConnectionSystem.Module
 		public KFSMEvent on_construction;
 
 		// Sounds
-
-/* FEHLER, Sound fehlt noch total -> ah und einige Servos spielen keinen Sound, was ist da falsch? -> hat nix mit LEE zu tun zwar
-
+/* FEHLER, future
 		[KSPField(isPersistant = false)] public string preAttachSoundFilePath = "";
 		[KSPField(isPersistant = false)] public string latchSoundFilePath = "";
 		[KSPField(isPersistant = false)] public string detachSoundFilePath = "";
@@ -139,13 +137,14 @@ namespace IR_ConnectionSystem.Module
 
 		protected SoundSource soundSound = null;
 */
-
 		// Capturing / Docking
 
 		public ModuleIRGF otherPort;
 		public uint dockedPartUId;
+		public uint dockedType; // defines which side this part is -> 0 = part, 1 = targetPart
 
 		public DockedVesselInfo vesselInfo;
+
 		public bool docked = false; // true, if the vessel of the otherPort is and should be the same as our vessel
 
 		private bool inCaptureDistance = false;
@@ -180,7 +179,9 @@ namespace IR_ConnectionSystem.Module
 
 		public override void OnAwake()
 		{
-			DebugInit();
+#if DEBUG
+	//		DebugInit();
+#endif
 
 		//	part.dockingPorts.AddUnique(this);
 		}
@@ -189,6 +190,17 @@ namespace IR_ConnectionSystem.Module
 		{
 			base.OnLoad(node);
 
+			nodeTypesAccepted = new HashSet<string>();
+
+			if(node.HasValue("nodeTypesAccepted"))
+			{
+				string[] values = node.GetValue("nodeTypesAccepted").Split(new char[2] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+				foreach(string s in values)
+					nodeTypesAccepted.Add(s);
+			}
+			else
+				nodeTypesAccepted.Add("GF");
+
 			if(node.HasValue("state"))
 				DockStatus = node.GetValue("state");
 			else
@@ -196,6 +208,9 @@ namespace IR_ConnectionSystem.Module
 
 			if(node.HasValue("dockUId"))
 				dockedPartUId = uint.Parse(node.GetValue("dockUId"));
+
+			if(node.HasValue("dockedType"))
+				dockedType = uint.Parse(node.GetValue("dockedType"));
 
 			if(node.HasValue("docked"))
 				docked = bool.Parse(node.GetValue("docked"));
@@ -215,8 +230,6 @@ namespace IR_ConnectionSystem.Module
 				node.TryGetValue("otherPortRelativePosition", ref otherPortRelativePosition);
 				node.TryGetValue("otherPortRelativeRotation", ref otherPortRelativeRotation);
 			}
-
-			part.fuelCrossFeed = crossfeed;
 		}
 
 		public override void OnSave(ConfigNode node)
@@ -226,6 +239,8 @@ namespace IR_ConnectionSystem.Module
 			node.AddValue("state", (string)(((fsm != null) && (fsm.Started)) ? fsm.currentStateName : DockStatus));
 
 			node.AddValue("dockUId", dockedPartUId);
+
+			node.AddValue("dockedType", dockedType);
 
 			node.AddValue("docked", docked);
 
@@ -253,8 +268,6 @@ namespace IR_ConnectionSystem.Module
 			GameEvents.onVesselGoOnRails.Add(OnPack);
 			GameEvents.onVesselGoOffRails.Add(OnUnpack);
 
-		//	GameEvents.onFloatingOriginShift.Add(OnFloatingOriginShift);
-
 			GameEvents.OnEVAConstructionModePartDetached.Add(OnEVAConstructionModePartDetached);
 
 			nodeTransform = base.part.FindModelTransform(nodeTransformName);
@@ -277,21 +290,7 @@ namespace IR_ConnectionSystem.Module
 
 			StartCoroutine(WaitAndInitialize(state));
 
-			StartCoroutine(WaitAndInitializeDockingNodeFix());
-		}
-
-		// FEHLER, ist 'n Quickfix, solange der blöde Port noch drüber hängt im Part...
-		public IEnumerator WaitAndInitializeDockingNodeFix()
-		{
-			ModuleDockingNode DockingNode = part.FindModuleImplementing<ModuleDockingNode>();
-
-			if(DockingNode)
-			{
-				while((DockingNode.fsm == null) || (!DockingNode.fsm.Started))
-					yield return null;
-
-				DockingNode.fsm.RunEvent(DockingNode.on_disable);
-			}
+	//		StartCoroutine(WaitAndDisableDockingNode());
 		}
 
 		public IEnumerator WaitAndInitialize(StartState st)
@@ -310,6 +309,10 @@ namespace IR_ConnectionSystem.Module
 
 			Events["Dock"].active = false;
 			Events["Undock"].active = false;
+
+			if(!canCrossfeed) crossfeed = false;
+
+			part.fuelCrossFeed = crossfeed;
 
 			Events["EnableXFeed"].active = !crossfeed;
 			Events["DisableXFeed"].active = crossfeed;
@@ -515,17 +518,33 @@ namespace IR_ConnectionSystem.Module
 			if(DockStatus == "Docked")
 			{
 				if(vessel == otherPort.vessel)
-					docked = true;
+					docked = true;					// FEHLER, wieso erst wenn if? das muss dann doch immer gelten, oder wie ginge das sonst? -> und, dieser "docked" Wert... ändert den je einer?
 
 				otherPort.DockStatus = "Docked";
 
 // FEHLER, erster Murks
-DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
+				if(dockedType == 0)
+					DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
+				else
+					DockingHelper.OnLoad(otherPort, otherPort.vesselInfo, this, vesselInfo);
 			}
 
 			fsm.StartFSM(DockStatus);
 		}
+	/*
+		public IEnumerator WaitAndDisableDockingNode()
+		{
+			ModuleDockingNode DockingNode = part.FindModuleImplementing<ModuleDockingNode>();
 
+			if(DockingNode)
+			{
+				while((DockingNode.fsm == null) || (!DockingNode.fsm.Started))
+					yield return null;
+
+				DockingNode.fsm.RunEvent(DockingNode.on_disable);
+			}
+		}
+	*/
 		public void OnDestroy()
 		{
 			GameEvents.onVesselGoOnRails.Remove(OnPack);
@@ -567,8 +586,6 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 					VesselPositionManager.Unregister((followOtherPort == 1) ? vessel : otherPort.vessel);
 					followOtherPort = 0;
 				}
-
-		//		StartCoroutine(OnUnpackDelayed());
 			}
 		}
 
@@ -634,6 +651,10 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 						if(_otherPort == null)
 							continue;
 
+						if(!nodeTypesAccepted.Contains(_otherPort.nodeType)
+						|| !_otherPort.nodeTypesAccepted.Contains(nodeType))
+							continue;
+
 						if(_otherPort.fsm.CurrentState != _otherPort.st_passive)
 							continue;
 
@@ -646,7 +667,7 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 							DockDistance = distance.magnitude.ToString();
 							DockAngle = "-";
 
-							if((angle <= 15f) && (distance.magnitude <= approachingDistance))
+							if((angle <= approachingAngle) && (distance.magnitude <= approachingDistance))
 							{
 								otherPort = _otherPort;
 								dockedPartUId = otherPort.part.flightID;
@@ -730,7 +751,7 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 				{
 					float angle = Vector3.Angle(nodeTransform.forward, -otherPort.nodeTransform.forward);
 
-					if(angle <= 15f)
+					if(angle <= approachingAngle)
 						return;
 				}
 
@@ -755,7 +776,7 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 
 				Events["Release"].active = true;
 
-//				otherPort.fsm.RunEvent(otherPort.on_capture_passive);
+			//	otherPort.fsm.RunEvent(otherPort.on_capture_passive); -> already done
 			};
 			st_capturing.OnFixedUpdate = delegate
 			{
@@ -764,14 +785,14 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 				Vector3 diffp = Vector3.ProjectOnPlane(diff, nodeTransform.forward);
 				Vector3 diffpl = Quaternion.Inverse(CaptureJoint.transform.rotation) * diffp;
 
-				if(diffpl.magnitude >= 0.0005f)
-					CaptureJoint.targetPosition -= diffpl.normalized * 0.0005f;
+				if(diffpl.magnitude >= capturingSpeedTranslation * TimeWarp.fixedDeltaTime)
+					CaptureJoint.targetPosition -= diffpl.normalized * capturingSpeedTranslation * TimeWarp.fixedDeltaTime;
 				else
 				{
 					CaptureJoint.targetPosition -= diffpl;
 
 					fsm.RunEvent(on_capture);
-				//	otherPort.fsm.RunEvent(otherPort.on_capture_passive); -> we do this earlier, when calling on_capturing -> could also be done here (no idea what is better)
+				//	otherPort.fsm.RunEvent(otherPort.on_capture_passive); -> already done
 				}
 			};
 			st_capturing.OnLeave = delegate(KFSMState to)
@@ -799,7 +820,14 @@ DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 			{
 				Events["Release"].active = true;
 
-				_transstep = 0.0005f / (nodeTransform.position - otherPort.nodeTransform.position).magnitude;
+				float latchingDuration = Math.Max(
+						(nodeTransform.position - otherPort.nodeTransform.position).magnitude / latchingSpeedTranslation,
+						(Quaternion.Angle(CaptureJointTargetRotation, Quaternion.identity) / latchingSpeedRotation));
+
+				if(float.IsNaN(latchingDuration) || float.IsInfinity(latchingDuration))
+					latchingDuration = 10;
+
+				_transstep = TimeWarp.fixedDeltaTime / latchingDuration;
 
 				CaptureJointWoherIchKomme = CaptureJoint.targetPosition;
 			};
@@ -853,15 +881,6 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			};
 			st_prelatched.OnLeave = delegate(KFSMState to)
 			{
-// FEHLER, evtl. noch relaxing machen, wenn gleiches Schiff?
-
-/*
-				DockToVessel(otherPort);
-
-				Destroy(CaptureJoint);
-				CaptureJoint = null;
-*/
-		//		otherPort.fsm.RunEvent(otherPort.on_dock);
 			};
 			fsm.AddState(st_prelatched);
 		
@@ -894,13 +913,12 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 				DestroyCaptureJoint();
 
 				Events["Release"].active = false;
-				Events["Latch"].active = false;
 				Events["Dock"].active = false;
 
 				Events["Restore"].active = true;
 
-//				if(otherPort != null)
-//					otherPort.fsm.RunEvent(otherPort.on_release_passive);
+			//	if(otherPort != null)
+			//		otherPort.fsm.RunEvent(otherPort.on_release_passive); -> already done
 			};
 			st_released.OnFixedUpdate = delegate
 			{
@@ -990,7 +1008,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			on_latching = new KFSMEvent("Latch");
 			on_latching.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_latching.GoToStateOnEvent = st_latching;
-			fsm.AddEvent(on_latching, st_captured, st_capturing, st_approaching); // FEHLER, nicht sicher ob das auch von st_capturing und st_approaching her möglich sein muss... aber, vorerst ist es mal drin
+			fsm.AddEvent(on_latching, st_captured);
 
 			on_prelatch = new KFSMEvent("Pre Latch");
 			on_prelatch.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
@@ -1037,6 +1055,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		}
 
 		// calculate position and orientation for st_capture
+// FEHLER, vergleichen mit dem DockingPort und BM? nutzen wir die DockingFunctions genug???
 		void CalculateCaptureJointRotationAndPosition(ModuleIRGF port, out Quaternion rotation, out Vector3 position)
 		{
 			Vector3 tvref =
@@ -1124,9 +1143,34 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			DockAngle = "-";
 		}
 
+static bool use2 = true;
 		private void BuildCaptureJoint2()
 		{
 			CalculateCaptureJointRotationAndPosition(otherPort, out CaptureJointTargetRotation, out CaptureJointTargetPosition);
+
+// FEHLER, neue Idee -> das später überall nutzen... vorerst mal zum Test im LEE, weil der die offensichtlichsten Abweichungen zeigte
+			Vector3 _pos; Quaternion _rot;
+			DockingHelper.CalculateDockingPositionAndRotation(this, otherPort, out _pos, out _rot);
+
+			if(use2)
+			{
+Vector3 corp = otherPort.GetPart().transform.position
+	- (otherPort.GetPart().vessel.transform.position + otherPort.GetPart().vessel.transform.rotation * otherPort.GetPart().orgPos);
+
+_pos += corp;
+
+Quaternion corq =
+	Quaternion.Inverse(otherPort.GetPart().vessel.transform.rotation * otherPort.GetPart().orgRot)
+	* otherPort.GetPart().transform.rotation;
+
+_rot *= corq;
+
+			// beides "umdrehen", weil es in einen Joint gefüttert wird...
+
+				CaptureJointTargetPosition = -transform.InverseTransformPoint(_pos);
+				CaptureJointTargetRotation = Quaternion.Inverse(Quaternion.Inverse(transform.rotation) * _rot);
+			}
+
 			_rotStep = 1f;
 		}
 
@@ -1151,19 +1195,9 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			{
 				if(vessel && !vessel.packed)
 				{
-
-				if((fsm != null) && fsm.Started)
-					fsm.FixedUpdateFSM();
-
+					if((fsm != null) && fsm.Started)
+						fsm.FixedUpdateFSM();
 				}
-/*
-				if(vessel.packed && followOtherPort)
-				{
-					vessel.SetRotation(otherPort.part.transform.rotation * otherPortRelativeRotation, true);
-					vessel.SetPosition(otherPort.part.transform.position + otherPort.part.transform.rotation * otherPortRelativePosition, false);
-				//	vessel.IgnoreGForces(5);
-				}
-*/
 			}
 		}
 
@@ -1173,13 +1207,11 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			{
 				if(vessel && !vessel.packed)
 				{
-
-				if((fsm != null) && fsm.Started)
-				{
-					fsm.UpdateFSM();
-					DockStatus = fsm.currentStateName;
-				}
-
+					if((fsm != null) && fsm.Started)
+					{
+						fsm.UpdateFSM();
+						DockStatus = fsm.currentStateName;
+					}
 				}
 			}
 		}
@@ -1190,9 +1222,8 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			{
 				if(vessel && !vessel.packed)
 				{
-
-				if((fsm != null) && fsm.Started)
-					fsm.LateUpdateFSM();
+					if((fsm != null) && fsm.Started)
+						fsm.LateUpdateFSM();
 				}
 			}
 		}
@@ -1234,9 +1265,8 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			autoCapture = !autoCapture;
 			Events["AutoCapture"].guiName = autoCapture ? "Capturing: Auto" : "Capturing: Manual";
 		}
-	// FEHLER, so toggle-Müll mal sauber definieren und überall gleich machen -> crossfeed ist zwar auch super doof definiert (im Stock)
 
-	// hier erfolgt eine verbindung und zentrierung (ohne Drehung)
+		// first connection and centering (no rotation)
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Capture")]
 		public void Capture()
 		{
@@ -1244,7 +1274,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			otherPort.fsm.RunEvent(otherPort.on_capture_passive);
 		}
 
-	// das ist das pull-back und eine Drehung (gleichzeitig)
+		// pull back and rotation (at the same time)
 		[KSPEvent(guiActive = true, guiActiveUnfocused = false, guiName = "Latch")]
 		public void Latch()
 		{
@@ -1350,7 +1380,7 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 			bool fuelCrossFeed = part.fuelCrossFeed;
 			part.fuelCrossFeed = (crossfeed = true);
 			if(fuelCrossFeed != crossfeed)
-				GameEvents.onPartCrossfeedStateChange.Fire(base.part);
+				GameEvents.onPartCrossfeedStateChange.Fire(part);
 		}
 
 		[KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "#autoLOC_236030")]
@@ -1358,10 +1388,10 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		{
 			Events["EnableXFeed"].active = true;
 			Events["DisableXFeed"].active = false;
-			bool fuelCrossFeed = base.part.fuelCrossFeed;
-			base.part.fuelCrossFeed = (crossfeed = false);
+			bool fuelCrossFeed = part.fuelCrossFeed;
+			part.fuelCrossFeed = (crossfeed = false);
 			if(fuelCrossFeed != crossfeed)
-				GameEvents.onPartCrossfeedStateChange.Fire(base.part);
+				GameEvents.onPartCrossfeedStateChange.Fire(part);
 		}
 
 		////////////////////////////////////////
@@ -1423,9 +1453,22 @@ CaptureJoint.targetPosition = Vector3.Slerp(CaptureJointTargetPosition, CaptureJ
 		public void SetDockInfo(DockInfo _dockInfo)
 		{
 			dockInfo = _dockInfo;
-			vesselInfo =
-				(dockInfo == null) ? null :
-				((dockInfo.part == (IDockable)this) ? dockInfo.vesselInfo : dockInfo.targetVesselInfo);
+
+			if(dockInfo == null)
+			{
+				dockedType = 0;
+				vesselInfo = null;
+			}
+			else if(dockInfo.part == (IDockable)this)
+			{
+				dockedType = 0;
+				vesselInfo = dockInfo.vesselInfo;
+			}
+			else
+			{
+				dockedType = 1;
+				vesselInfo = dockInfo.targetVesselInfo;
+			}
 		}
 
 		public bool IsDocked()
@@ -1479,6 +1522,8 @@ return ""; // FEHLER, fehlt
 		////////////////////////////////////////
 		// Debug
 
+#if DEBUG
+	/*
 		private MultiLineDrawer ld;
 
 		private String[] astrDebug;
@@ -1517,5 +1562,8 @@ return ""; // FEHLER, fehlt
 
 		private void DrawAxis(int idx, Transform p_transform, Vector3 p_vector, bool p_relative)
 		{ DrawAxis(idx, p_transform, p_vector, p_relative, Vector3.zero); }
+	*/
+#endif
+
 	}
 }

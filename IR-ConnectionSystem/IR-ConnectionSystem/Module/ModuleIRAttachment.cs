@@ -1,14 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 
-using KSP.IO;
 using UnityEngine;
 
 using IR_ConnectionSystem.Effects;
-using IR_ConnectionSystem.Utility;
 using DockingFunctions;
+
 
 namespace IR_ConnectionSystem.Module
 {
@@ -116,7 +115,9 @@ AttachNode referenceNode = null; // aktuell nur für second-dock genutzt... eige
 
 		public override void OnAwake()
 		{
-			DebugInit();
+#if DEBUG
+	//		DebugInit();
+#endif
 		}
 
 		public override void OnLoad(ConfigNode node)
@@ -1014,6 +1015,8 @@ hostPart.vessel.SetRotation(hostPart.vessel.transform.rotation);
 		////////////////////////////////////////
 		// Debug
 
+#if DEBUG
+	/*
 		private MultiLineDrawer ld;
 
 		private void DebugInit()
@@ -1026,5 +1029,8 @@ hostPart.vessel.SetRotation(hostPart.vessel.transform.rotation);
 		{
 			ld.Draw(idx, p_from, p_from + p_vector);
 		}
+	*/
+#endif
+
 	}
 }

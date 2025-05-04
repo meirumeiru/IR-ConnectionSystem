@@ -19,7 +19,7 @@ namespace IR_ConnectionSystem
 
 		public static void Log(string message, Level level = Level.Info)
 		{
-			message = "IR: " + message;
+			message = "IR-ConnectionSystem: " + message;
 			switch (level)
 			{
 				case Level.Error:

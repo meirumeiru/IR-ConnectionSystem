@@ -18,25 +18,25 @@ namespace IR_ConnectionSystem.Module
 		public string nodeTransformName = "dockingNode";
 
 		[KSPField(isPersistant = false), SerializeField]
-		public string controlTransformName = "";
-
-		[KSPField(isPersistant = false), SerializeField]
 		public Vector3 dockingOrientation = Vector3.up; // defines the direction of the docking port (when docked at a 0° angle, these local vectors of two ports point into the same direction)
 
 		[KSPField(isPersistant = false), SerializeField]
 		public int snapCount = 1;
 
 
-		[KSPField(isPersistant = false)]
+		[KSPField(isPersistant = false), SerializeField]
 		public string nodeType = "GF";
 
-		public HashSet<string> nodeTypesAccepted = null;
+		[KSPField(isPersistant = false), SerializeField]
+		private string nodeTypesAccepted = "LEE";
+
+		public HashSet<string> nodeTypesAcceptedS = null;
 
 
-		[KSPField(isPersistant = false)]
+		[KSPField(isPersistant = false), SerializeField]
 		public float breakingForce = 10f;
 
-		[KSPField(isPersistant = false)]
+		[KSPField(isPersistant = false), SerializeField]
 		public float breakingTorque = 10f;
 
 
@@ -56,7 +56,6 @@ namespace IR_ConnectionSystem.Module
 		public BaseEvent evtUnsetTarget;
 
 		public Transform nodeTransform;
-		public Transform controlTransform;
 
 		public KerbalFSM fsm;
 
@@ -119,17 +118,6 @@ namespace IR_ConnectionSystem.Module
 		{
 			base.OnLoad(node);
 
-			nodeTypesAccepted = new HashSet<string>();
-
-			if(node.HasValue("nodeTypesAccepted"))
-			{
-				string[] values = node.GetValue("nodeTypesAccepted").Split(new char[2] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-				foreach(string s in values)
-					nodeTypesAccepted.Add(s);
-			}
-			else
-				nodeTypesAccepted.Add("LEE");
-
 			if(node.HasValue("state"))
 				DockStatus = node.GetValue("state");
 			else
@@ -157,9 +145,18 @@ namespace IR_ConnectionSystem.Module
 				vesselInfo.Save(node.AddNode("DOCKEDVESSEL"));
 		}
 
-		public override void OnStart(StartState st)
+		public override void OnStart(StartState state)
 		{
-			base.OnStart(st);
+			base.OnStart(state);
+
+			nodeTypesAcceptedS = new HashSet<string>();
+
+			string[] values = nodeTypesAccepted.Split(new char[2] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+			foreach(string s in values)
+				nodeTypesAcceptedS.Add(s);
+
+			if(state == StartState.Editor)
+				return;
 
 			evtSetAsTarget = base.Events["SetAsTarget"];
 			evtUnsetTarget = base.Events["UnsetTarget"];
@@ -172,19 +169,8 @@ namespace IR_ConnectionSystem.Module
 				Debug.LogWarning("[Docking Node Module]: WARNING - No node transform found with name " + nodeTransformName, base.part.gameObject);
 				return;
 			}
-			if(controlTransformName == string.Empty)
-				controlTransform = base.part.transform;
-			else
-			{
-				controlTransform = base.part.FindModelTransform(controlTransformName);
-				if(!controlTransform)
-				{
-					Debug.LogWarning("[Docking Node Module]: WARNING - No control transform found with name " + controlTransformName, base.part.gameObject);
-					controlTransform = base.part.transform;
-				}
-			}
 
-			StartCoroutine(WaitAndInitialize(st));
+			StartCoroutine(WaitAndInitialize(state));
 
 	//		StartCoroutine(WaitAndDisableDockingNode());
 		}
@@ -257,6 +243,8 @@ namespace IR_ConnectionSystem.Module
 
 				Events["TogglePort"].guiName = "Deactivate Grapple Fixture";
 				Events["TogglePort"].active = true;
+
+				DockStatus = fsm.currentStateName;
 			};
 			st_passive.OnFixedUpdate = delegate
 			{
@@ -264,15 +252,14 @@ namespace IR_ConnectionSystem.Module
 			st_passive.OnLeave = delegate(KFSMState to)
 			{
 				if(to != st_disabled)
-				{
 					Events["TogglePort"].active = false;
-				}
 			};
 			fsm.AddState(st_passive);
 
 			st_approaching_passive = new KFSMState("Approaching");
 			st_approaching_passive.OnEnter = delegate(KFSMState from)
 			{
+				DockStatus = fsm.currentStateName;
 			};
 			st_approaching_passive.OnFixedUpdate = delegate
 			{
@@ -285,6 +272,7 @@ namespace IR_ConnectionSystem.Module
 			st_captured_passive = new KFSMState("Captured");
 			st_captured_passive.OnEnter = delegate(KFSMState from)
 			{
+				DockStatus = fsm.currentStateName;
 			};
 			st_captured_passive.OnFixedUpdate = delegate
 			{
@@ -297,6 +285,7 @@ namespace IR_ConnectionSystem.Module
 			st_latched_passive = new KFSMState("Latched");
 			st_latched_passive.OnEnter = delegate(KFSMState from)
 			{
+				DockStatus = fsm.currentStateName;
 			};
 			st_latched_passive.OnFixedUpdate = delegate
 			{
@@ -309,6 +298,7 @@ namespace IR_ConnectionSystem.Module
 			st_docked = new KFSMState("Docked");
 			st_docked.OnEnter = delegate(KFSMState from)
 			{
+				DockStatus = fsm.currentStateName;
 			};
 			st_docked.OnFixedUpdate = delegate
 			{
@@ -321,6 +311,7 @@ namespace IR_ConnectionSystem.Module
 			st_preattached = new KFSMState("Attached");
 			st_preattached.OnEnter = delegate(KFSMState from)
 			{
+				DockStatus = fsm.currentStateName;
 			};
 			st_preattached.OnFixedUpdate = delegate
 			{
@@ -335,6 +326,8 @@ namespace IR_ConnectionSystem.Module
 			{
 				Events["TogglePort"].guiName = "Activate Grapple Fixture";
 				Events["TogglePort"].active = true;
+
+				DockStatus = fsm.currentStateName;
 			};
 			st_disabled.OnFixedUpdate = delegate
 			{
@@ -364,6 +357,7 @@ namespace IR_ConnectionSystem.Module
 			on_latch_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
 			on_latch_passive.GoToStateOnEvent = st_latched_passive;
 			fsm.AddEvent(on_latch_passive, st_captured_passive);
+
 
 			on_release_passive = new KFSMEvent("Released");
 			on_release_passive.updateMode = KFSMUpdateMode.MANUAL_TRIGGER;
@@ -421,10 +415,7 @@ namespace IR_ConnectionSystem.Module
 				if(vessel && !vessel.packed)
 				{
 					if((fsm != null) && fsm.Started)
-					{
 						fsm.UpdateFSM();
-						DockStatus = fsm.currentStateName;
-					}
 
 					if(FlightGlobals.fetch.VesselTarget == (ITargetable)this)
 					{
@@ -482,12 +473,6 @@ namespace IR_ConnectionSystem.Module
 				fsm.RunEvent(on_disable);
 		}
 
-		void DeactivateColliders(Vessel v)
-		{
-			Collider[] colliders = part.transform.GetComponentsInChildren<Collider>(true);
-			CollisionManager.SetCollidersOnVessel(v, true, colliders);
-		}
-
 		[KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "#autoLOC_236028")]
 		public void EnableXFeed()
 		{
@@ -538,21 +523,8 @@ namespace IR_ConnectionSystem.Module
 				EnableXFeed();
 		}
 
-		[KSPAction("#autoLOC_6001447")]
-		public void MakeReferenceToggle(KSPActionParam act)
-		{
-			MakeReferenceTransform();
-		}
-
 		////////////////////////////////////////
 		// Reference / Target
-
-		[KSPEvent(guiActive = true, guiName = "#autoLOC_6001447")]
-		public void MakeReferenceTransform()
-		{
-			part.SetReferenceTransform(controlTransform);
-			vessel.SetReferenceTransform(part);
-		}
 
 		[KSPEvent(guiActive = false, guiActiveUnfocused = true, externalToEVAOnly = false, unfocusedRange = 200f, guiName = "#autoLOC_6001448")]
 		public void SetAsTarget()

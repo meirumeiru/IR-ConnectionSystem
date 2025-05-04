@@ -244,7 +244,7 @@ namespace IR_ConnectionSystem.Module
 				Events["TogglePort"].guiName = "Deactivate Grapple Fixture";
 				Events["TogglePort"].active = true;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_passive.name;
 			};
 			st_passive.OnFixedUpdate = delegate
 			{
@@ -259,7 +259,7 @@ namespace IR_ConnectionSystem.Module
 			st_approaching_passive = new KFSMState("Approaching");
 			st_approaching_passive.OnEnter = delegate(KFSMState from)
 			{
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_approaching_passive.name;
 			};
 			st_approaching_passive.OnFixedUpdate = delegate
 			{
@@ -272,7 +272,7 @@ namespace IR_ConnectionSystem.Module
 			st_captured_passive = new KFSMState("Captured");
 			st_captured_passive.OnEnter = delegate(KFSMState from)
 			{
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_captured_passive.name;
 			};
 			st_captured_passive.OnFixedUpdate = delegate
 			{
@@ -285,7 +285,7 @@ namespace IR_ConnectionSystem.Module
 			st_latched_passive = new KFSMState("Latched");
 			st_latched_passive.OnEnter = delegate(KFSMState from)
 			{
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_latched_passive.name;
 			};
 			st_latched_passive.OnFixedUpdate = delegate
 			{
@@ -298,7 +298,7 @@ namespace IR_ConnectionSystem.Module
 			st_docked = new KFSMState("Docked");
 			st_docked.OnEnter = delegate(KFSMState from)
 			{
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_docked.name;
 			};
 			st_docked.OnFixedUpdate = delegate
 			{
@@ -311,7 +311,7 @@ namespace IR_ConnectionSystem.Module
 			st_preattached = new KFSMState("Attached");
 			st_preattached.OnEnter = delegate(KFSMState from)
 			{
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_preattached.name;
 			};
 			st_preattached.OnFixedUpdate = delegate
 			{
@@ -327,7 +327,7 @@ namespace IR_ConnectionSystem.Module
 				Events["TogglePort"].guiName = "Activate Grapple Fixture";
 				Events["TogglePort"].active = true;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_disabled.name;
 			};
 			st_disabled.OnFixedUpdate = delegate
 			{

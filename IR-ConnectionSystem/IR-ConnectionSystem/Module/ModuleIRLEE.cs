@@ -463,7 +463,7 @@ namespace IR_ConnectionSystem.Module
 				Events["AutoCapture"].guiName = autoCapture ? "Capturing: Auto" : "Capturing: Manual";
 				Events["AutoCapture"].active = true;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_active.name;
 			};
 			st_active.OnFixedUpdate = delegate
 			{
@@ -543,7 +543,7 @@ namespace IR_ConnectionSystem.Module
 
 			//	otherPort.fsm.RunEvent(otherPort.on_approach_passive); -> is done manually
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_approaching.name;
 			};
 			st_approaching.OnFixedUpdate = delegate
 			{
@@ -617,7 +617,7 @@ namespace IR_ConnectionSystem.Module
 
 			//	otherPort.fsm.RunEvent(otherPort.on_capture_passive); -> already done
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_capturing.name;
 			};
 			st_capturing.OnFixedUpdate = delegate
 			{
@@ -647,7 +647,7 @@ namespace IR_ConnectionSystem.Module
 				Events["Release"].active = true;
 				Events["Latch"].active = true;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_captured.name;
 			};
 			st_captured.OnFixedUpdate = delegate
 			{
@@ -678,7 +678,7 @@ namespace IR_ConnectionSystem.Module
 
 				LatchJointInitialPosition = LatchJoint.targetPosition;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_latching.name;
 			};
 			st_latching.OnFixedUpdate = delegate
 			{
@@ -711,7 +711,7 @@ namespace IR_ConnectionSystem.Module
 
 				latchRelaxCounter = 10;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_prelatched.name;
 			};
 			st_prelatched.OnFixedUpdate = delegate
 			{
@@ -740,7 +740,7 @@ namespace IR_ConnectionSystem.Module
 				JointDrive linearDrive = new JointDrive { maximumForce = PhysicsGlobals.JointForce, positionSpring = PhysicsGlobals.JointForce, positionDamper = 0f };
 				LatchJoint.xDrive = LatchJoint.yDrive = LatchJoint.zDrive = linearDrive;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_latched.name;
 			};
 			st_latched.OnFixedUpdate = delegate
 			{
@@ -764,7 +764,7 @@ namespace IR_ConnectionSystem.Module
 			//	if(otherPort != null)
 			//		otherPort.fsm.RunEvent(otherPort.on_release_passive); -> already done
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_released.name;
 			};
 			st_released.OnFixedUpdate = delegate
 			{
@@ -786,7 +786,7 @@ namespace IR_ConnectionSystem.Module
 			{
 				Events["Undock"].active = true;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_docked.name;
 			};
 			st_docked.OnFixedUpdate = delegate
 			{
@@ -802,7 +802,7 @@ namespace IR_ConnectionSystem.Module
 			{
 				Events["Undock"].active = true;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_preattached.name;
 			};
 			st_preattached.OnFixedUpdate = delegate
 			{
@@ -821,7 +821,7 @@ namespace IR_ConnectionSystem.Module
 
 				Events["AutoCapture"].active = false;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_disabled.name;
 			};
 			st_disabled.OnFixedUpdate = delegate
 			{

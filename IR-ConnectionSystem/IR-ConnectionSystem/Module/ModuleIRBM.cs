@@ -465,7 +465,7 @@ if((supportedModes & 2) == 0)
 	fsm.RunEvent(on_setpassive);
 }
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_active.name;
 			};
 			st_active.OnFixedUpdate = delegate
 			{
@@ -559,7 +559,7 @@ if((supportedModes & 1) == 0)
 	fsm.RunEvent(on_setactive);
 }
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_passive.name;
 			};
 			st_passive.OnFixedUpdate = delegate
 			{
@@ -584,7 +584,7 @@ if((supportedModes & 1) == 0)
 
 			//	otherPort.fsm.RunEvent(otherPort.on_approach_passive); -> is done manually
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_approaching.name;
 			};
 			st_approaching.OnFixedUpdate = delegate
 			{
@@ -639,7 +639,7 @@ if((supportedModes & 1) == 0)
 			st_approaching_passive = new KFSMState("Approaching (passive)");
 			st_approaching_passive.OnEnter = delegate(KFSMState from)
 			{
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_approaching_passive.name;
 			};
 			st_approaching_passive.OnFixedUpdate = delegate
 			{
@@ -670,7 +670,7 @@ if((supportedModes & 1) == 0)
 
 				LatchJointInitialPosition = LatchJoint.targetPosition;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_latching.name;
 			};
 			st_latching.OnFixedUpdate = delegate
 			{
@@ -703,7 +703,7 @@ if((supportedModes & 1) == 0)
 
 				latchRelaxCounter = 10;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_prelatched.name;
 			};
 			st_prelatched.OnFixedUpdate = delegate
 			{
@@ -734,7 +734,7 @@ if((supportedModes & 1) == 0)
 				JointDrive linearDrive = new JointDrive { maximumForce = PhysicsGlobals.JointForce, positionSpring = PhysicsGlobals.JointForce, positionDamper = 0f };
 				LatchJoint.xDrive = LatchJoint.yDrive = LatchJoint.zDrive = linearDrive;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_latched.name;
 			};
 			st_latched.OnFixedUpdate = delegate
 			{
@@ -752,7 +752,7 @@ if((supportedModes & 1) == 0)
 			{
 				Events["MakeActive"].guiActive = ((supportedModes & 2) != 0) && ((otherPort.supportedModes & 1) != 0);
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_latched_passive.name;
 			};
 			st_latched_passive.OnFixedUpdate = delegate
 			{
@@ -768,7 +768,7 @@ if((supportedModes & 1) == 0)
 			{
 				Events["Undock"].active = ((supportedModes & 2) != 0) || (directUndock && otherPort.directUndock);
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_docked.name;
 			};
 			st_docked.OnFixedUpdate = delegate
 			{
@@ -784,7 +784,7 @@ if((supportedModes & 1) == 0)
 			{
 				Events["Undock"].active = ((supportedModes & 2) != 0) || (directUndock && otherPort.directUndock);
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_preattached.name;
 			};
 			st_preattached.OnFixedUpdate = delegate
 			{
@@ -801,7 +801,7 @@ if((supportedModes & 1) == 0)
 				Events["TogglePort"].guiName = "Activate Port";
 				Events["TogglePort"].active = true;
 
-				DockStatus = fsm.currentStateName;
+				DockStatus = st_disabled.name;
 			};
 			st_disabled.OnFixedUpdate = delegate
 			{

@@ -4,7 +4,9 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
+#if DEBUG
 using IR_ConnectionSystem.Utility;
+#endif
 using DockingFunctions;
 
 
@@ -47,8 +49,8 @@ namespace IR_ConnectionSystem.Module
 		public bool crossfeed = false;
 
 
-		[KSPField(isPersistant = false)]
-		public string nodeName = "";	// FEHLER, -> wir brauchen einen Namen
+		[KSPField(guiFormat = "S", guiActive = true, guiActiveEditor = true, guiName = "Port Name")]
+		public string portName = "";
 
 		// Docking and Status
 
@@ -154,6 +156,9 @@ namespace IR_ConnectionSystem.Module
 			string[] values = nodeTypesAccepted.Split(new char[2] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
 			foreach(string s in values)
 				nodeTypesAcceptedS.Add(s);
+
+			if(portName == string.Empty)
+				portName = part.partInfo.title;
 
 			if(state == StartState.Editor)
 				return;
@@ -570,6 +575,29 @@ namespace IR_ConnectionSystem.Module
 				vesselInfo = dockInfo.targetVesselInfo;
 		}
 
+		// returns true, if the port is (passive and) ready to dock with an other (active) port
+		public bool IsReadyFor(IDockable otherPort)
+		{
+			if(otherPort != null)
+			{
+				ModuleIRLEE _otherPort = otherPort.GetPart().GetComponent<ModuleIRLEE>();
+
+				if(!_otherPort)
+					return false;
+
+				if(!nodeTypesAcceptedS.Contains(_otherPort.nodeType)
+				|| !_otherPort.nodeTypesAcceptedS.Contains(nodeType))
+					return false;
+			}
+
+			return (fsm.CurrentState == st_passive);
+		}
+
+		public ITargetable GetTargetable()
+		{
+			return (ITargetable)this;
+		}
+
 		public bool IsDocked()
 		{
 			return ((fsm.CurrentState == st_docked) || (fsm.CurrentState == st_preattached));
@@ -610,7 +638,7 @@ namespace IR_ConnectionSystem.Module
 
 		public string GetName()
 		{
-			return "name fehlt noch"; // FEHLER, einbauen
+			return portName;
 		}
 
 		public string GetDisplayName()
@@ -636,6 +664,27 @@ namespace IR_ConnectionSystem.Module
 		public bool GetActiveTargetable()
 		{
 			return false;
+		}
+
+		private DockingPortRenameDialog renameDialog;
+
+		[KSPEvent(guiActive = true, guiActiveUnfocused = true, guiName = "Rename Port")]
+		public void Rename()
+		{
+			InputLockManager.SetControlLock("dockingPortRenameDialog");
+
+			renameDialog = DockingPortRenameDialog.Spawn(portName, onPortRenameAccept, onPortRenameCancel);
+		}
+
+		private void onPortRenameAccept(string newPortName)
+		{
+			portName = newPortName;
+			onPortRenameCancel();
+		}
+
+		private void onPortRenameCancel()
+		{
+			InputLockManager.RemoveControlLock("dockingPortRenameDialog");
 		}
 
 		////////////////////////////////////////

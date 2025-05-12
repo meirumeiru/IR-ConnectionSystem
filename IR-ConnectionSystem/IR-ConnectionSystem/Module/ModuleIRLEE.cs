@@ -1256,6 +1256,16 @@ namespace IR_ConnectionSystem.Module
 			}
 		}
 
+		public bool IsReadyFor(IDockable otherPort)
+		{
+			return false;
+		}
+
+		public ITargetable GetTargetable()
+		{
+			return null;
+		}
+
 		public bool IsDocked()
 		{
 			return ((fsm.CurrentState == st_docked) || (fsm.CurrentState == st_preattached));

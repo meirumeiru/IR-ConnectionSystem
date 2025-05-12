@@ -4,13 +4,15 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
+#if DEBUG
 using IR_ConnectionSystem.Utility;
+#endif
 using DockingFunctions;
 
 
 namespace IR_ConnectionSystem.Module
 {
-	public class ModuleIRBM : PartModule, IDockable, IModuleInfo
+	public class ModuleIRBM : PartModule, IDockable, ITargetable, IModuleInfo
 	{
 		// Settings
 
@@ -81,10 +83,13 @@ namespace IR_ConnectionSystem.Module
 		public bool crossfeed = true;
 
 
-		[KSPField(isPersistant = false)]
-		public string nodeName = "";				// FEHLER, -> wir brauchen einen Namen
+		[KSPField(guiFormat = "S", guiActive = true, guiActiveEditor = true, guiName = "Port Name")]
+		public string portName = "";
 
 		// Docking and Status
+
+		public BaseEvent evtSetAsTarget;
+		public BaseEvent evtUnsetTarget;
 
 		public Transform nodeTransform;
 
@@ -258,8 +263,14 @@ namespace IR_ConnectionSystem.Module
 			foreach(string s in values)
 				nodeTypesAcceptedS.Add(s);
 
+			if(portName == string.Empty)
+				portName = part.partInfo.title;
+
 			if(state == StartState.Editor)
 				return;
+
+			evtSetAsTarget = base.Events["SetAsTarget"];
+			evtUnsetTarget = base.Events["UnsetTarget"];
 
 			GameEvents.onVesselGoOnRails.Add(OnPack);
 			GameEvents.onVesselGoOffRails.Add(OnUnpack);
@@ -497,13 +508,11 @@ if((supportedModes & 2) == 0)
 						|| !_otherPort.nodeTypesAcceptedS.Contains(nodeType))
 							continue;
 
+						if((_otherPort.fsm.CurrentState == _otherPort.st_active) && _otherPort.autoActivePassive)
+							_otherPort.fsm.RunEvent(_otherPort.on_setpassive);
+
 						if(_otherPort.fsm.CurrentState != _otherPort.st_passive)
-						{
-							if(_otherPort.autoActivePassive)
-								_otherPort.fsm.RunEvent(_otherPort.on_setpassive);
-							else
-								continue;
-						}
+							continue;
 
 						distance = _otherPort.nodeTransform.position - nodeTransform.position;
 
@@ -985,7 +994,7 @@ if((supportedModes & 1) == 0)
 			Destroy(LatchJoint);
 			LatchJoint = null;
 
-			// FEHLER, nur mal so 'ne Idee... weiss nicht ob das gut sit
+			// FEHLER, nur mal so 'ne Idee... weiss nicht ob das gut ist
 
 			vessel.ResetRBAnchor();
 			if(otherPort) otherPort.vessel.ResetRBAnchor();
@@ -1014,6 +1023,22 @@ if((supportedModes & 1) == 0)
 				{
 					if((fsm != null) && fsm.Started)
 						fsm.UpdateFSM();
+
+					if(FlightGlobals.fetch.VesselTarget == (ITargetable)this)
+					{
+						evtSetAsTarget.active = false;
+						evtUnsetTarget.active = true;
+
+						if(FlightGlobals.ActiveVessel == vessel)
+							FlightGlobals.fetch.SetVesselTarget(null);
+						else if((FlightGlobals.ActiveVessel.transform.position - nodeTransform.position).sqrMagnitude > 40000f)
+							FlightGlobals.fetch.SetVesselTarget(vessel);
+					}
+					else
+					{
+						evtSetAsTarget.active = true;
+						evtUnsetTarget.active = false;
+					}
 				}
 			}
 		}
@@ -1261,6 +1286,21 @@ if((supportedModes & 1) == 0)
 		}
 
 		////////////////////////////////////////
+		// Reference / Target
+
+		[KSPEvent(guiActive = false, guiActiveUnfocused = true, externalToEVAOnly = false, unfocusedRange = 200f, guiName = "#autoLOC_6001448")]
+		public void SetAsTarget()
+		{
+			FlightGlobals.fetch.SetVesselTarget(this);
+		}
+
+		[KSPEvent(guiActive = false, guiActiveUnfocused = true, externalToEVAOnly = false, unfocusedRange = 200f, guiName = "#autoLOC_6001449")]
+		public void UnsetTarget()
+		{
+			FlightGlobals.fetch.SetVesselTarget(null);
+		}
+
+		////////////////////////////////////////
 		// IDockable
 
 		private DockInfo dockInfo;
@@ -1301,6 +1341,29 @@ if((supportedModes & 1) == 0)
 			}
 		}
 
+		// returns true, if the port is (passive and) ready to dock with an other (active) port
+		public bool IsReadyFor(IDockable otherPort)
+		{
+			if(otherPort != null)
+			{
+				ModuleIRBM _otherPort = otherPort.GetPart().GetComponent<ModuleIRBM>();
+
+				if(!_otherPort)
+					return false;
+
+				if(!nodeTypesAcceptedS.Contains(_otherPort.nodeType)
+				|| !_otherPort.nodeTypesAcceptedS.Contains(nodeType))
+					return false;
+			}
+
+			return (fsm.CurrentState == st_passive) || ((fsm.CurrentState == st_active) && autoActivePassive);
+		}
+
+		public ITargetable GetTargetable()
+		{
+			return (ITargetable)this;
+		}
+
 		public bool IsDocked()
 		{
 			return ((fsm.CurrentState == st_docked) || (fsm.CurrentState == st_preattached));
@@ -1309,6 +1372,85 @@ if((supportedModes & 1) == 0)
 		public IDockable GetOtherDockable()
 		{
 			return IsDocked() ? (IDockable)otherPort : null;
+		}
+
+		////////////////////////////////////////
+		// ITargetable
+
+		public Transform GetTransform()
+		{
+			return nodeTransform;
+		}
+
+		public Vector3 GetObtVelocity()
+		{
+			return base.vessel.obt_velocity;
+		}
+
+		public Vector3 GetSrfVelocity()
+		{
+			return base.vessel.srf_velocity;
+		}
+
+		public Vector3 GetFwdVector()
+		{
+			return nodeTransform.forward;
+		}
+
+		public Vessel GetVessel()
+		{
+			return vessel;
+		}
+
+		public string GetName()
+		{
+			return portName;
+		}
+
+		public string GetDisplayName()
+		{
+			return GetName();
+		}
+
+		public Orbit GetOrbit()
+		{
+			return vessel.orbit;
+		}
+
+		public OrbitDriver GetOrbitDriver()
+		{
+			return vessel.orbitDriver;
+		}
+
+		public VesselTargetModes GetTargetingMode()
+		{
+			return VesselTargetModes.DirectionVelocityAndOrientation;
+		}
+
+		public bool GetActiveTargetable()
+		{
+			return false;
+		}
+
+		private DockingPortRenameDialog renameDialog;
+
+		[KSPEvent(guiActive = true, guiActiveUnfocused = true, guiName = "Rename Port")]
+		public void Rename()
+		{
+			InputLockManager.SetControlLock("dockingPortRenameDialog");
+
+			renameDialog = DockingPortRenameDialog.Spawn(portName, onPortRenameAccept, onPortRenameCancel);
+		}
+
+		private void onPortRenameAccept(string newPortName)
+		{
+			portName = newPortName;
+			onPortRenameCancel();
+		}
+
+		private void onPortRenameCancel()
+		{
+			InputLockManager.RemoveControlLock("dockingPortRenameDialog");
 		}
 
 		////////////////////////////////////////

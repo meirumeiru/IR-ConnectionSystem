@@ -36,13 +36,6 @@ namespace IR_ConnectionSystem.Module
 
 
 		[KSPField(isPersistant = false), SerializeField]
-		public float breakingForce = 10f;
-
-		[KSPField(isPersistant = false), SerializeField]
-		public float breakingTorque = 10f;
-
-
-		[KSPField(isPersistant = false), SerializeField]
 		public bool canCrossfeed = true;
 
 		[KSPField(isPersistant = true)]
@@ -575,18 +568,30 @@ namespace IR_ConnectionSystem.Module
 				vesselInfo = dockInfo.targetVesselInfo;
 		}
 
+		// returns true, if the port is compatible with the other port
+		public bool IsCompatible(IDockable otherPort)
+		{
+			if(otherPort == null)
+				return false;
+
+			ModuleIRLEE _otherPort = otherPort.GetPart().GetComponent<ModuleIRLEE>();
+
+			if(!_otherPort)
+				return false;
+
+			if(!nodeTypesAcceptedS.Contains(_otherPort.nodeType)
+			|| !_otherPort.nodeTypesAcceptedS.Contains(nodeType))
+				return false;
+
+			return true;
+		}
+
 		// returns true, if the port is (passive and) ready to dock with an other (active) port
 		public bool IsReadyFor(IDockable otherPort)
 		{
 			if(otherPort != null)
 			{
-				ModuleIRLEE _otherPort = otherPort.GetPart().GetComponent<ModuleIRLEE>();
-
-				if(!_otherPort)
-					return false;
-
-				if(!nodeTypesAcceptedS.Contains(_otherPort.nodeType)
-				|| !_otherPort.nodeTypesAcceptedS.Contains(nodeType))
+				if(!IsCompatible(otherPort))
 					return false;
 			}
 

@@ -41,4 +41,4 @@ using System.Runtime.InteropServices;
 
 
 [assembly: KSPAssembly("IR-ConnectionSystem", 1, 0)]
-[assembly: KSPAssemblyDependency("DockingFunctions", 1, 0)]
+[assembly: KSPAssemblyDependency("DockingFunctions", 1, 1)]

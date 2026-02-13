@@ -12,9 +12,18 @@ using DockingFunctions;
 
 namespace IR_ConnectionSystem.Module
 {
-	public class ModuleIRGF : PartModule, IDockable, ITargetable, IModuleInfo
+	public class ModuleIRGF : PartModule, IDockable, ITargetable, IModuleInfo, IConstruction
 	{
 		// Settings
+
+		[KSPField(isPersistant = false), SerializeField]
+		public string nodeType = "GF";
+
+		[KSPField(isPersistant = false), SerializeField]
+		private string nodeTypesAccepted = "LEE";
+
+		public HashSet<string> nodeTypesAcceptedS = null;
+
 
 		[KSPField(isPersistant = false), SerializeField]
 		public string nodeTransformName = "dockingNode";
@@ -24,15 +33,6 @@ namespace IR_ConnectionSystem.Module
 
 		[KSPField(isPersistant = false), SerializeField]
 		public int snapCount = 1;
-
-
-		[KSPField(isPersistant = false), SerializeField]
-		public string nodeType = "GF";
-
-		[KSPField(isPersistant = false), SerializeField]
-		private string nodeTypesAccepted = "LEE";
-
-		public HashSet<string> nodeTypesAcceptedS = null;
 
 
 		[KSPField(isPersistant = false), SerializeField]
@@ -113,6 +113,9 @@ namespace IR_ConnectionSystem.Module
 		{
 			base.OnLoad(node);
 
+			if(node.HasValue("portName"))
+				portName = node.GetValue("portName");
+
 			if(node.HasValue("state"))
 				DockStatus = node.GetValue("state");
 			else
@@ -131,6 +134,8 @@ namespace IR_ConnectionSystem.Module
 		public override void OnSave(ConfigNode node)
 		{
 			base.OnSave(node);
+
+			node.AddValue("portName", portName);
 
 			node.AddValue("state", (string)(((fsm != null) && (fsm.Started)) ? fsm.currentStateName : DockStatus));
 
@@ -164,7 +169,7 @@ namespace IR_ConnectionSystem.Module
 			nodeTransform = base.part.FindModelTransform(nodeTransformName);
 			if(!nodeTransform)
 			{
-				Debug.LogWarning("[Docking Node Module]: WARNING - No node transform found with name " + nodeTransformName, base.part.gameObject);
+				Logger.Log("No node transform found with name " + nodeTransformName, Logger.Level.Error);
 				return;
 			}
 
@@ -702,7 +707,11 @@ namespace IR_ConnectionSystem.Module
 
 		string IModuleInfo.GetInfo()
 		{
-			return "";
+			string info = "";
+
+			info += "Crossfeed: " + (crossfeed ? "<color=green>supported</color>" : "<color=red>no</color>") + "\n";
+
+			return info;
 		}
 
 		Callback<Rect> IModuleInfo.GetDrawModulePanelCallback()
@@ -713,6 +722,24 @@ namespace IR_ConnectionSystem.Module
 		string IModuleInfo.GetPrimaryField()
 		{
 			return null;
+		}
+
+		////////////////////////////////////////
+		// IConstruction
+
+		public bool CanBeDetached()
+		{
+			return fsm.CurrentState == st_disabled;
+		}
+
+		public bool CanBeOffset()
+		{
+			return fsm.CurrentState == st_disabled;
+		}
+
+		public bool CanBeRotated()
+		{
+			return fsm.CurrentState == st_disabled;
 		}
 
 		////////////////////////////////////////
@@ -742,23 +769,22 @@ namespace IR_ConnectionSystem.Module
 
 		private void DrawPointer(int idx, Vector3 p_vector)
 		{
-			ld.Draw(idx, Vector3.zero, p_vector);
+			ld.Draw(idx, idx, Vector3.zero, p_vector);
 		}
 
 		private void DrawRelative(int idx, Vector3 p_from, Vector3 p_vector)
 		{
-			ld.Draw(idx, p_from, p_from + p_vector);
+			ld.Draw(idx, idx, p_from, p_from + p_vector);
 		}
 
 		private void DrawAxis(int idx, Transform p_transform, Vector3 p_vector, bool p_relative, Vector3 p_off)
 		{
-			ld.Draw(idx, p_transform.position + p_off, p_transform.position + p_off
+			ld.Draw(idx, idx, p_transform.position + p_off, p_transform.position + p_off
 				+ (p_relative ? p_transform.TransformDirection(p_vector) : p_vector));
 		}
 
 		private void DrawAxis(int idx, Transform p_transform, Vector3 p_vector, bool p_relative)
 		{ DrawAxis(idx, p_transform, p_vector, p_relative, Vector3.zero); }
-	
 	 */
 #endif
 

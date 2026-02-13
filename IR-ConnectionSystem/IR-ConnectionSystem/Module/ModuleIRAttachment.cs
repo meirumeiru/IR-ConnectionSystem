@@ -923,32 +923,6 @@ hostPart.vessel.SetRotation(hostPart.vessel.transform.rotation);
 		}
 
 		////////////////////////////////////////
-		// IRescalable
-/*
-		// Tweakscale support
-		[KSPEvent(guiActive = false, active = true)]
-		void OnPartScaleChanged(BaseEventDetails data)
-		{
-			OnRescale(new ScalingFactor(data.Get<float>("factorAbsolute")));
-		}
-
-		public void OnRescale(ScalingFactor factor)
-		{
-			ModuleIRAttachment prefab = part.partInfo.partPrefab.GetComponent<ModuleIRAttachment>();
-
-			part.mass = prefab.part.mass * Mathf.Pow(factor.absolute.linear, scaleMass);
-
-			forceNeeded = prefab.forceNeeded * factor.absolute.linear;
- 			partBreakForce = prefab.partBreakForce * factor.absolute.linear;
- 			groundBreakForce = prefab.groundBreakForce * factor.absolute.linear;
-
-			electricChargeRequiredIdle = prefab.electricChargeRequiredIdle * Mathf.Pow(factor.absolute.linear, scaleElectricChargeRequired);
-			electricChargeRequiredConnected = prefab.electricChargeRequiredConnected * Mathf.Pow(factor.absolute.linear, scaleElectricChargeRequired);
-
-			UpdateUI();
-		}
-*/
-		////////////////////////////////////////
 		// IModuleInfo
 
 		string IModuleInfo.GetModuleTitle()
@@ -1027,7 +1001,7 @@ hostPart.vessel.SetRotation(hostPart.vessel.transform.rotation);
 
 		public void DrawRelative(int idx, Vector3 p_from, Vector3 p_vector)
 		{
-			ld.Draw(idx, p_from, p_from + p_vector);
+			ld.Draw(idx, idx, p_from, p_from + p_vector);
 		}
 	*/
 #endif

@@ -213,10 +213,7 @@ namespace IR_ConnectionSystem.Module
 
 		// Packed / OnRails
 
-		private bool followOtherPort = false;
-
-		private Vector3 otherPortRelativePosition;
-		private Quaternion otherPortRelativeRotation;
+		private int followOtherPort = 0;
 
 		////////////////////////////////////////
 		// Constructor
@@ -270,14 +267,6 @@ namespace IR_ConnectionSystem.Module
 				vesselInfo = new DockedVesselInfo();
 				vesselInfo.Load(node.GetNode("DOCKEDVESSEL"));
 			}
-
-			if(node.HasValue("followOtherPort"))
-			{
-				followOtherPort = bool.Parse(node.GetValue("followOtherPort"));
-
-				node.TryGetValue("otherPortRelativePosition", ref otherPortRelativePosition);
-				node.TryGetValue("otherPortRelativeRotation", ref otherPortRelativeRotation);
-			}
 		}
 
 		public override void OnSave(ConfigNode node)
@@ -294,14 +283,6 @@ namespace IR_ConnectionSystem.Module
 
 			if(vesselInfo != null)
 				vesselInfo.Save(node.AddNode("DOCKEDVESSEL"));
-
-			node.AddValue("followOtherPort", followOtherPort);
-
-			if(followOtherPort)
-			{
-				if(otherPortRelativePosition != null)	node.AddValue("otherPortRelativePosition", otherPortRelativePosition);
-				if(otherPortRelativeRotation != null)	node.AddValue("otherPortRelativeRotation", otherPortRelativeRotation);
-			}
 		}
 
 		public override void OnStart(StartState state)
@@ -424,6 +405,12 @@ namespace IR_ConnectionSystem.Module
 			}
 
 			fsm.StartFSM(DockStatus);
+
+			if(joint || (otherPort && otherPort.joint))
+			{
+				if(Vessel.GetDominantVessel(vessel, otherPort.vessel) == otherPort.vessel)
+					followOtherPort = VesselPositionManager.Register(part, otherPort.part);
+			}
 		}
 	/*
 		public IEnumerator WaitAndDisableDockingNode()
@@ -451,14 +438,10 @@ namespace IR_ConnectionSystem.Module
 		{
 			if(vessel == v)
 			{
-				if((DockStatus == "Latched")
-				|| (DockStatus == "Latched (passive)"))
+				if(joint || (otherPort && otherPort.joint))
 				{
 					if(Vessel.GetDominantVessel(vessel, otherPort.vessel) == otherPort.vessel)
-					{
-						followOtherPort = true;
-						VesselPositionManager.Register(part, otherPort.part, true, out otherPortRelativePosition, out otherPortRelativeRotation);
-					}
+						followOtherPort = VesselPositionManager.Register(part, otherPort.part);
 				}
 			}
 		}
@@ -467,11 +450,10 @@ namespace IR_ConnectionSystem.Module
 		{
 			if(vessel == v)
 			{
-				if((DockStatus == "Latched")
-				|| (DockStatus == "Latched (passive)"))
+				if(followOtherPort != 0)
 				{
-					VesselPositionManager.Unregister(vessel);
-					followOtherPort = false;
+					VesselPositionManager.Unregister(followOtherPort);
+					followOtherPort = 0;
 				}
 			}
 		}

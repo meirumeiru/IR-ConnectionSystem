@@ -146,14 +146,6 @@ AttachNode referenceNode = null; // aktuell nur für second-dock genutzt... eige
 				}
 				break;
 			}
-
-			if(node.HasValue("followOtherPort"))
-			{
-				followOtherPort = int.Parse(node.GetValue("followOtherPort"));
-
-				node.TryGetValue("otherPortRelativePosition", ref otherPortRelativePosition);
-				node.TryGetValue("otherPortRelativeRotation", ref otherPortRelativeRotation);
-			}
 		}
 
 		public override void OnSave(ConfigNode node)
@@ -180,12 +172,6 @@ AttachNode referenceNode = null; // aktuell nur für second-dock genutzt... eige
 					vesselInfo.Save(subNode);
 				}
 				break;
-			}
-
-			if(followOtherPort != 0)
-			{
-				if(otherPortRelativePosition != null)	node.AddValue("otherPortRelativePosition", otherPortRelativePosition);
-				if(otherPortRelativeRotation != null)	node.AddValue("otherPortRelativeRotation", otherPortRelativeRotation);
 			}
 		}
 
@@ -312,15 +298,9 @@ end:;
 			if(attachType == AttachType.Part)
 			{
 				if(Vessel.GetDominantVessel(vessel, attachedPart.vessel) == attachedPart.vessel)
-				{
-					followOtherPort = 1;
-					VesselPositionManager.Register(part, attachedPart, true, out otherPortRelativePosition, out otherPortRelativeRotation);
-				}
+					followOtherPort = VesselPositionManager.Register(part, attachedPart);
 				else
-				{
-					followOtherPort = 2;
-					VesselPositionManager.Register(attachedPart, part, true, out otherPortRelativePosition, out otherPortRelativeRotation);
-				}
+					followOtherPort = VesselPositionManager.Register(attachedPart, part);
 			}
 		}
 
@@ -335,9 +315,9 @@ end:;
 			if(activated && (attachType == AttachType.None))
 				part.Rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
-			if(attachType == AttachType.Part)
+			if(followOtherPort != 0)
 			{
-				VesselPositionManager.Unregister((followOtherPort == 1) ? vessel : attachedPart.vessel);
+				VesselPositionManager.Unregister(followOtherPort);
 				followOtherPort = 0;
 			}
 		}

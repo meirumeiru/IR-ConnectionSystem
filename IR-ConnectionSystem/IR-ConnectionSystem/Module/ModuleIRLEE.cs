@@ -1440,15 +1440,12 @@ namespace IR_ConnectionSystem.Module
 			otherPort.otherPort = this;
 			otherPort.dockedPartUId = part.flightID;
 
-			DockingHelper.SaveCameraPosition(part);
 			DockingHelper.SuspendCameraSwitch(10);
 
 			if(otherPort.vessel == Vessel.GetDominantVessel(vessel, otherPort.vessel))
 				DockingHelper.DockVessels(this, otherPort);
 			else
 				DockingHelper.DockVessels(otherPort, this);
-
-			DockingHelper.RestoreCameraPosition(part);
 
 			Destroy(joint);
 			joint = null;
@@ -1463,12 +1460,9 @@ namespace IR_ConnectionSystem.Module
 			Vessel oldvessel = vessel;
 			uint referenceTransformId = vessel.referenceTransformId;
 
-			DockingHelper.SaveCameraPosition(part);
 			DockingHelper.SuspendCameraSwitch(10);
 
 			DockingHelper.UndockVessels(this, otherPort);
-
-			DockingHelper.RestoreCameraPosition(part);
 
 			otherPort.fsm.RunEvent(otherPort.on_undock_passive);
 			fsm.RunEvent(on_undock);
@@ -1484,12 +1478,8 @@ namespace IR_ConnectionSystem.Module
 		{
 			yield return null;
 
-			DockingHelper.SaveCameraPosition(part);
-
 			FlightGlobals.ForceSetActiveVessel(vessel);
 			FlightInputHandler.SetNeutralControls();
-
-			DockingHelper.RestoreCameraPosition(part);
 		}
 
 		[KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "#autoLOC_236028")]

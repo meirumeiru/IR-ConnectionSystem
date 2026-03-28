@@ -320,6 +320,8 @@ namespace IR_ConnectionSystem.Module
 			Events["Dock"].active = false;
 			Events["Undock"].active = false;
 
+			ResetDockInfo();
+
 			if(!canCrossfeed) crossfeed = false;
 
 			part.fuelCrossFeed = crossfeed;
@@ -559,14 +561,15 @@ namespace IR_ConnectionSystem.Module
 					}
 				}
 
-				DockDistance = "-";
-				DockAlignment = "-";
-				DockAngle = "-";
+				ResetDockInfo();
 			};
 			st_active.OnLeave = delegate(KFSMState to)
 			{
 				if(to != st_disabled)
 					Events["TogglePort"].active = false;
+
+				if(to != st_approaching)
+					ResetDockInfo();
 			};
 			fsm.AddState(st_active);
 
@@ -631,6 +634,8 @@ namespace IR_ConnectionSystem.Module
 			};
 			st_approaching.OnLeave = delegate(KFSMState to)
 			{
+				if(to != st_latching)
+					ResetDockInfo();
 			};
 			fsm.AddState(st_approaching);
 
@@ -823,6 +828,9 @@ namespace IR_ConnectionSystem.Module
 			{
 				if(to != st_prelatched)
 					Events["Release"].active = false;
+
+				if(to != st_prelatched)
+					ResetDockInfo();
 			};
 			fsm.AddState(st_latching);
 
@@ -947,6 +955,8 @@ namespace IR_ConnectionSystem.Module
 			{
 				if(to != st_latched)
 					Events["Release"].active = false;
+
+				ResetDockInfo();
 			};
 			fsm.AddState(st_prelatched);
 		
@@ -978,7 +988,6 @@ namespace IR_ConnectionSystem.Module
 				Events["Release"].active = true;
 
 				Events["Dock"].active = true;
-				Events["Undock"].active = false;
 
 				if(joint == null)
 				{
@@ -1030,6 +1039,8 @@ namespace IR_ConnectionSystem.Module
 			st_released.OnLeave = delegate(KFSMState to)
 			{
 				Events["Restore"].active = false;
+
+				ResetDockInfo();
 			};
 			fsm.AddState(st_released);
 		
@@ -1072,6 +1083,8 @@ namespace IR_ConnectionSystem.Module
 				Events["TogglePort"].active = true;
 
 				Events["AutoCapture"].active = false;
+
+				ResetDockInfo();
 
 				DockStatus = st_disabled.name;
 			};
@@ -1172,15 +1185,18 @@ namespace IR_ConnectionSystem.Module
 			return angle;
 		}
 
+		private void ResetDockInfo()
+		{
+			DockDistance = "-";
+			DockAlignment = "-";
+			DockAngle = "-";
+		}
+
 		private void BuildJoint()
 		{
 			joint = gameObject.AddComponent<ConfigurableJoint>();
 
 			joint.connectedBody = otherPort.part.Rigidbody;
-
-			DockDistance = "-";
-			DockAlignment = "-";
-			DockAngle = "-";
 		}
 
 		// modifies the joint so that it is moveable

@@ -186,7 +186,6 @@ namespace IR_ConnectionSystem.Module
 
 		public ModuleIRBM otherPort;
 		public uint dockedPartUId;
-		public uint dockedType; // defines which side this part is -> 0 = part, 1 = targetPart
 
 		public DockedVesselInfo vesselInfo;
 
@@ -259,9 +258,6 @@ namespace IR_ConnectionSystem.Module
 			if(node.HasValue("dockUId"))
 				dockedPartUId = uint.Parse(node.GetValue("dockUId"));
 
-			if(node.HasValue("dockedType"))
-				dockedType = uint.Parse(node.GetValue("dockedType"));
-
 			if(node.HasNode("DOCKEDVESSEL"))
 			{
 				vesselInfo = new DockedVesselInfo();
@@ -278,8 +274,6 @@ namespace IR_ConnectionSystem.Module
 			node.AddValue("state", (string)(((fsm != null) && (fsm.Started)) ? fsm.currentStateName : DockStatus));
 
 			node.AddValue("dockUId", dockedPartUId);
-
-			node.AddValue("dockedType", dockedType);
 
 			if(vesselInfo != null)
 				vesselInfo.Save(node.AddNode("DOCKEDVESSEL"));
@@ -402,8 +396,7 @@ namespace IR_ConnectionSystem.Module
 			{
 				otherPort.DockStatus = "Docked";
 
-				if(dockedType == 0)
-					DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
+				DockingHelper.OnLoad(this, vesselInfo, otherPort, otherPort.vesselInfo);
 			}
 
 			fsm.StartFSM(DockStatus);
@@ -1619,20 +1612,11 @@ namespace IR_ConnectionSystem.Module
 			dockInfo = _dockInfo;
 
 			if(dockInfo == null)
-			{
-				dockedType = 0;
 				vesselInfo = null;
-			}
 			else if(dockInfo.part == (IDockable)this)
-			{
-				dockedType = 0;
 				vesselInfo = dockInfo.vesselInfo;
-			}
 			else
-			{
-				dockedType = 1;
 				vesselInfo = dockInfo.targetVesselInfo;
-			}
 		}
 
 		// returns true, if the port is compatible with the other port

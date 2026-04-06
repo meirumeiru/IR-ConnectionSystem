@@ -1462,9 +1462,6 @@ namespace IR_ConnectionSystem.Module
 		[KSPEvent(guiActive = true, guiActiveUnfocused = true, externalToEVAOnly = true, unfocusedRange = 2f, guiName = "#autoLOC_6001445")]
 		public void Undock()
 		{
-			Vessel oldvessel = vessel;
-			uint referenceTransformId = vessel.referenceTransformId;
-
 			DockingHelper.SuspendCameraSwitch(10);
 
 			DockingHelper.UndockVessels(this, otherPort);
@@ -1490,20 +1487,6 @@ namespace IR_ConnectionSystem.Module
 				otherPort.fsm.RunEvent(((supportedModes & 2) != 0) ? otherPort.on_release_passive : otherPort.on_release);
 				fsm.RunEvent(((supportedModes & 2) != 0) ? on_release : on_release_passive);
 			}
-
-			if(oldvessel == FlightGlobals.ActiveVessel)
-			{
-				if(vessel[referenceTransformId] == null)
-					StartCoroutine(WaitAndSwitchFocus());
-			}
-		}
-
-		public IEnumerator WaitAndSwitchFocus()
-		{
-			yield return null;
-
-			FlightGlobals.ForceSetActiveVessel(vessel);
-			FlightInputHandler.SetNeutralControls();
 		}
 
 		[KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "#autoLOC_236028")]

@@ -62,7 +62,7 @@ namespace IR_ConnectionSystem.Module
 
 
 		[KSPField(isPersistant = false), SerializeField]
-		public float capturingForce = 300f;
+		public float capturingForce = 400f;
 
 		[KSPField(isPersistant = false), SerializeField]
 		public float captureBreakingForceFactor = 0.02f;
@@ -78,7 +78,7 @@ namespace IR_ConnectionSystem.Module
 
 
 		[KSPField(isPersistant = false), SerializeField]
-		public float latchingForce = 10000f;
+		public float latchingForce = 7000f;
 
 		[KSPField(isPersistant = false), SerializeField]
 		public float latchingBreakingForceFactor = 0.2f;
@@ -90,20 +90,20 @@ namespace IR_ConnectionSystem.Module
 		public float latchingBreakingAngle = 1.0f;
 
 		[KSPField(isPersistant = false), SerializeField]
-		public float latchingSpeedRotation = 0.1f; // degrees per second
+		public float latchingSpeedRotation = 1.0f; // degrees per second
 
 		[KSPField(isPersistant = false), SerializeField]
-		public float latchingSpeedTranslation = 0.025f; // distance per second
+		public float latchingSpeedTranslation = 0.25f; // distance per second
 
 
 		[KSPField(isPersistant = false), SerializeField]
-		public float latchingDistance = 0.002f;
+		public float latchingDistance = 0.03f;
 
 		[KSPField(isPersistant = false), SerializeField]
-		public float latchingAlignment = 0.04f;
+		public float latchingAlignment = 0.5f;
 
 		[KSPField(isPersistant = false), SerializeField]
-		public float latchingAngle = 0.04f;
+		public float latchingAngle = 0.5f;
 
 
 		[KSPField(isPersistant = false), SerializeField]
@@ -529,13 +529,13 @@ namespace IR_ConnectionSystem.Module
 
 						if(distance < detectionDistance)
 						{
-							DockDistance = distance.ToString();
+							DockDistance = distance.ToString("F4");
 
 							alignment = Vector3.Angle(nodeTransform.forward, -_otherPort.nodeTransform.forward);
 
 							if((alignment <= approachingAlignment) && (distance <= approachingDistance))
 							{
-								DockAlignment = alignment.ToString();
+								DockAlignment = alignment.ToString("F3") + "°";
 								DockAngle = "-";
 
 								// we don't expect to see multiple matching ports in the same area
@@ -585,9 +585,9 @@ namespace IR_ConnectionSystem.Module
 				float alignment = Vector3.Angle(nodeTransform.forward, -otherPort.nodeTransform.forward);
 				float angle = CalculateAngle();
 
-				DockDistance = distance.ToString();
-				DockAlignment = alignment.ToString();
-				DockAngle = angle.ToString();
+				DockDistance = distance.ToString("F4");
+				DockAlignment = alignment.ToString("F3") + "°";
+				DockAngle = angle.ToString("F3") + "°";
 
 				if((distance < captureDistance)
 				&& (alignment < captureAlignment)
@@ -760,9 +760,9 @@ namespace IR_ConnectionSystem.Module
 				float alignment = Vector3.Angle(nodeTransform.forward, -otherPort.nodeTransform.forward);
 				float angle = CalculateAngle();
 
-				DockDistance = distance.ToString();
-				DockAlignment = alignment.ToString();
-				DockAngle = angle.ToString();
+				DockDistance = distance.ToString("F4");
+				DockAlignment = alignment.ToString("F3") + "°";
+				DockAngle = angle.ToString("F3") + "°";
 
 				if((jointLastDistance - distance > latchingBreakingDistance)
 				|| (jointLastAlignment - alignment > latchingBreakingAngle))
@@ -782,7 +782,7 @@ namespace IR_ConnectionSystem.Module
 				jointLastAlignment = alignment;
 
 				if((distance > captureDistance * 1.04f)
-				|| (angle > captureAlignment * 1.04f)
+				|| (alignment > captureAlignment * 1.04f)
 				|| (Mathf.Abs(angle) > captureAngle * 1.04f))
 				{
 					fsm.RunEvent(on_latchfailed);
@@ -804,7 +804,7 @@ namespace IR_ConnectionSystem.Module
 					float force = (1f - progress) * latchingForce + progress * capturingForce;
 
 					JointDrive angularDrive = new JointDrive { maximumForce = force, positionSpring = 60000f, positionDamper = 0f };
-					joint.angularXDrive = joint.angularYZDrive = joint.slerpDrive = angularDrive;
+					joint.angularXDrive = joint.angularYZDrive = angularDrive;
 
 					JointDrive linearDrive = new JointDrive { maximumForce = force, positionSpring = PhysicsGlobals.JointForce, positionDamper = 0f };
 					joint.xDrive = joint.yDrive = joint.zDrive = linearDrive;
@@ -818,10 +818,10 @@ namespace IR_ConnectionSystem.Module
 			st_latching.OnLeave = delegate(KFSMState to)
 			{
 				if(to != st_prelatched)
+				{
 					Events["Release"].active = false;
-
-				if(to != st_prelatched)
 					ResetDockInfo();
+				}
 			};
 			fsm.AddState(st_latching);
 
@@ -837,7 +837,7 @@ namespace IR_ConnectionSystem.Module
 						latchingBreakingForceFactor;
 
 				JointDrive angularDrive = new JointDrive { maximumForce = latchingForce, positionSpring = 60000f, positionDamper = 0f };
-				joint.angularXDrive = joint.angularYZDrive = joint.slerpDrive = angularDrive;
+				joint.angularXDrive = joint.angularYZDrive = angularDrive;
 
 				JointDrive linearDrive = new JointDrive { maximumForce = latchingForce, positionSpring = PhysicsGlobals.JointForce, positionDamper = 0f };
 				joint.xDrive = joint.yDrive = joint.zDrive = linearDrive;
@@ -845,7 +845,7 @@ namespace IR_ConnectionSystem.Module
 				joint.targetRotation = jointTargetRotation;
 				joint.targetPosition = jointTargetPosition;
 
-				waitCounter = 1000;
+				waitCounter = 100;
 				progress = 1;
 				relaxCounter = 10;
 
@@ -868,9 +868,9 @@ namespace IR_ConnectionSystem.Module
 				float alignment = Vector3.Angle(nodeTransform.forward, -otherPort.nodeTransform.forward);
 				float angle = CalculateAngle();
 
-				DockDistance = distance.ToString();
-				DockAlignment = alignment.ToString();
-				DockAngle = angle.ToString();
+				DockDistance = distance.ToString("F4");
+				DockAlignment = alignment.ToString("F3") + "°";
+				DockAngle = angle.ToString("F3") + "°";
 
 				if((jointLastDistance - distance > latchingBreakingDistance)
 				|| (jointLastAlignment - alignment > latchingBreakingAngle))
@@ -893,7 +893,7 @@ namespace IR_ConnectionSystem.Module
 				{
 					if((distance < latchingDistance)
 					&& (alignment < latchingAlignment)
-					&& (angle < latchingAngle))
+					&& (Mathf.Abs(angle) < latchingAngle))
 						waitCounter = 0;
 					else
 					{
@@ -904,7 +904,7 @@ namespace IR_ConnectionSystem.Module
 				}
 
 				if((distance > latchingDistance * 1.04f)
-				|| (angle > latchingAlignment * 1.04f)
+				|| (alignment > latchingAlignment * 1.04f)
 				|| (Mathf.Abs(angle) > latchingAngle * 1.04f))
 				{
 					fsm.RunEvent(on_latchfailed);
@@ -928,7 +928,7 @@ namespace IR_ConnectionSystem.Module
 					float force = (1f - progress) * PhysicsGlobals.JointForce * 0.6f + progress * latchingForce;
 
 					JointDrive angularDrive = new JointDrive { maximumForce = force, positionSpring = 60000f, positionDamper = 0f };
-					joint.angularXDrive = joint.angularYZDrive = joint.slerpDrive = angularDrive;
+					joint.angularXDrive = joint.angularYZDrive = angularDrive;
 
 					JointDrive linearDrive = new JointDrive { maximumForce = force, positionSpring = PhysicsGlobals.JointForce, positionDamper = 0f };
 					joint.xDrive = joint.yDrive = joint.zDrive = linearDrive;
@@ -1020,7 +1020,7 @@ namespace IR_ConnectionSystem.Module
 			{
 				float distance = (otherPort.nodeTransform.position - nodeTransform.position).magnitude;
 
-				DockDistance = distance.ToString();
+				DockDistance = distance.ToString("F4");
 				DockAlignment = "-";
 				DockAngle = "-";
 

@@ -1447,8 +1447,6 @@ namespace IR_ConnectionSystem.Module
 			otherPort.otherPort = this;
 			otherPort.dockedPartUId = part.flightID;
 
-			DockingHelper.SuspendCameraSwitch(10);
-
 			if(otherPort.vessel == Vessel.GetDominantVessel(vessel, otherPort.vessel))
 				DockingHelper.DockVessels(this, otherPort);
 			else
@@ -1464,8 +1462,6 @@ namespace IR_ConnectionSystem.Module
 		[KSPEvent(guiActive = true, guiActiveUnfocused = true, externalToEVAOnly = true, unfocusedRange = 2f, guiName = "#autoLOC_6001445")]
 		public void Undock()
 		{
-			DockingHelper.SuspendCameraSwitch(10);
-
 			DockingHelper.UndockVessels(this, otherPort);
 
 			otherPort.fsm.RunEvent(otherPort.on_undock_passive);
